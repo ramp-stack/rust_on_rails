@@ -107,7 +107,6 @@ impl<A: WinitApp + 'static> ApplicationHandler for Winit<A> {
         #[cfg(target_arch="wasm32")]
         {
             let window = self.window().clone();
-            self.window().request_inner_size(winit::dpi::PhysicalSize::new(450, 400)).unwrap();
             web_sys::window()
             .and_then(|win| win.document())
             .and_then(|doc| {
@@ -117,6 +116,8 @@ impl<A: WinitApp + 'static> ApplicationHandler for Winit<A> {
                 Some(())
             })
             .expect("Couldn't append canvas to document body.");
+
+            let _ = self.window().request_inner_size(winit::dpi::PhysicalSize::new(450, 400));
 
             let app = self.app.clone();
 
@@ -153,11 +154,13 @@ impl<A: WinitApp + 'static> ApplicationHandler for Winit<A> {
 
                         let app = self.app.clone();
                         wasm_bindgen_futures::spawn_local(async move {
-                            app.lock().unwrap().as_mut().unwrap().prepare(
+                            let mut app = app.lock().unwrap();
+                            app.as_mut().unwrap().prepare(
                                 width, height, scale_factor
                             ).await;
 
-                            app.lock().unwrap().as_mut().unwrap().render().await
+                            app.as_mut().unwrap().render().await;
+                            drop(app);
                         });
                     }
 
@@ -211,6 +214,7 @@ macro_rules! create_entry_points {
         }
 
         #[cfg(target_arch = "wasm32")]
+        #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
         pub fn wasm_main() {
             Winit::<$app>::new().start(<$app>::LOG_LEVEL)
         }
