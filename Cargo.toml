@@ -16,7 +16,7 @@ lyon_path = "1.0.6"
 glyphon = "0.6.0"
 raw-window-handle = "0.6.2"
 
-wgpu_canvas = "0.1.0"
+wgpu_canvas = "0.1.1" #{path="../wgpu_canvas"}
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14.1"

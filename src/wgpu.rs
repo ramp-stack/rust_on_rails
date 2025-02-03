@@ -98,9 +98,11 @@ impl WgpuCanvasRenderer {
         }
     }
 
-    pub fn prepare(&mut self, width: u32, height: u32, _scale_factor: f32, meshes: Vec<Mesh>) {
+    pub fn prepare(&mut self, width: u32, height: u32, logical_width: f32, logical_height: f32, meshes: Vec<Mesh>) {
         self.resize(width, height);
-        self.canvas.prepare(&self.device, &self.queue, meshes);
+        //Something requires the logical size to be cut in half from this point forward
+        //Possibly the math is off for the canvas calcs or this object sets up the wgpu renderer wrong
+        self.canvas.prepare(&self.device, &self.queue, meshes, logical_width / 2.0, logical_height / 2.0);
     }
 
 
