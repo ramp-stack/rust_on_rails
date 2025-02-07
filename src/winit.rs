@@ -14,19 +14,38 @@ use winit::platform::web::{WindowExtWebSys, EventLoopExtWebSys};
 
 use std::sync::{Mutex, Arc};
 
+#[derive(Clone, Copy)]
+pub struct ScreenSize {
+    pub physical_width: u32,
+    pub physical_height: u32,
+    pub scale_factor: f64,
+    pub logical_width: f32,
+    pub logical_height: f32
+}
+
+impl ScreenSize {
+    pub fn new(physical_width: u32, physical_height: u32, scale_factor: f64) -> Self {
+        ScreenSize{
+            physical_width, physical_height, scale_factor,
+            logical_width: (physical_width as f64 * scale_factor) as f32,
+            logical_height: (physical_height as f64 * scale_factor) as f32,
+        }
+    }
+}
+
 pub type WinitWindow = Arc<Window>;
 
 pub trait WinitApp {
     const LOG_LEVEL: log::Level;
     fn new(window: WinitWindow) -> impl std::future::Future<Output = Self> where Self: Sized;
-    fn prepare(&mut self, width: u32, height: u32, scale_factor: f32) -> impl std::future::Future<Output = ()>;
+    fn prepare(&mut self, screen_size: ScreenSize) -> impl std::future::Future<Output = ()>;
     fn render(&mut self) -> impl std::future::Future<Output = ()>;
 }
 
 pub struct Winit<A: WinitApp> {
     width: u32,
     height: u32,
-    scale_factor: f32,
+    scale_factor: f64,
     window: Option<Arc<Window>>,
     app: Arc<Mutex<Option<A>>>,
     #[cfg(not(target_arch="wasm32"))]
@@ -97,7 +116,7 @@ impl<A: WinitApp + 'static> ApplicationHandler for Winit<A> {
         let size = self.window().inner_size();
         self.width = size.width;
         self.height = size.height;
-        self.scale_factor = self.window().scale_factor() as f32;
+        self.scale_factor = self.window().scale_factor();
 
         #[cfg(not(target_arch="wasm32"))]
         {
@@ -148,9 +167,7 @@ impl<A: WinitApp + 'static> ApplicationHandler for Winit<A> {
                 WindowEvent::RedrawRequested => {
                     #[cfg(target_arch="wasm32")]
                     {
-                        let width = self.width;
-                        let height = self.height;
-                        let scale_factor = self.scale_factor;
+                        let screen_size = ScreenSize::new(self.width, self.height, self.scale_factor);
 
                         let app = self.app.clone();
                         wasm_bindgen_futures::spawn_local(async move {
@@ -168,7 +185,7 @@ impl<A: WinitApp + 'static> ApplicationHandler for Winit<A> {
                     {
                         self.runtime.block_on(
                             self.app.lock().unwrap().as_mut().unwrap().prepare(
-                                self.width, self.height, self.scale_factor
+                                ScreenSize::new(self.width, self.height, self.scale_factor)
                             )
                         );
                         self.runtime.block_on(
@@ -184,12 +201,18 @@ impl<A: WinitApp + 'static> ApplicationHandler for Winit<A> {
                     self.window().request_redraw();
                 },
                 WindowEvent::ScaleFactorChanged{scale_factor, ..} => {
-                    self.scale_factor = scale_factor as f32;
+                    self.scale_factor = scale_factor;
                     self.window().request_redraw();
                 }
                 _ => (),
             }
         }
+    }
+}
+
+impl<A: WinitApp + 'static> Default for Winit<A> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
