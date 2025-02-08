@@ -1,6 +1,6 @@
 [package]
 name = "rust_on_rails"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2021"
 description = "Rust On Rails is a rust framework to make building native and web apps easy as possible"
 license = "BSD-3-Clause"
@@ -10,7 +10,8 @@ repository = "https://github.com/CalebCouch/rust_on_rails.git"
 log = "0.4.25"
 winit = {version="0.30.0", features=["android-native-activity"]}
 wgpu = "22.1.0"
-wgpu_canvas = "1.0.0"
+wgpu_canvas = "2.0.0"
+#wgpu_canvas = {path="../wgpu_canvas"}
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14.1"
