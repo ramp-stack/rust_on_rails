@@ -1,32 +1,38 @@
 mod winit;
 pub use winit::{WinitAppTrait, WinitApp};
-use winit::WinitWindow;
+
+#[cfg(target_os = "android")]
+pub use winit::AndroidApp;
+#[cfg(target_arch = "wasm32")]
+pub use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
+pub use wasm_bindgen;
 
 mod canvas;
-pub use canvas::{CanvasAppTrait, CanvasApp, CanvasAtlas};
-pub use canvas::{ItemType, Shape, CanvasItem, Text, image};
+pub use canvas::{CanvasAppTrait, CanvasContext, CanvasApp};
+pub use canvas::{ItemType, Shape as ShapeType, Text as CanvasText, image, ImageKey, FontKey, CanvasItem, DrawCommand};
 
-//  mod components;
-//  pub use components::{ComponentAppTrait, ComponentApp};
-//  pub use components::{ComponentContext, *};
+#[cfg(feature = "canvas")]
+pub mod prelude {
+    pub use crate::*;
+    pub use crate::CanvasText as Text;
+    pub use crate::CanvasAppTrait as App;
+    pub use crate::CanvasContext as Context;
+    pub use crate::create_canvas_entry_points as create_entry_points;
+}
 
-//  pub mod prelude {
-//      #[cfg(target_os = "android")]
-//      pub use winit::AndroidApp;
+#[cfg(feature = "components")]
+mod components;
+#[cfg(feature = "components")]
+pub use components::{ComponentAppTrait, ComponentContext, ComponentApp, Handle, Image, Shape, Text, ComponentBuilder, Drawable, Vec2, Rect};
 
-//      #[cfg(target_arch = "wasm32")]
-//      pub use wasm_bindgen::prelude::*;
-
-//      #[cfg(target_arch = "wasm32")]
-//      pub use wasm_bindgen;
-
-//      pub use crate::{WinitApp, WinitAppTrait, CanvasApp, CanvasAppTrait};//, CanvasContext, ComponentApp};
-//      pub use crate::{
-//          create_winit_entry_points,
-//          create_canvas_entry_points,
-//          //create_entry_points
-//      };
-//    //pub use crate::ComponentAppTrait as App;
-//    //pub use crate::ComponentContext as Context;
-//    //pub use crate::*;
-//  }
+#[cfg(feature = "components")]
+pub mod prelude {
+    pub use crate::*;
+    pub use crate::ComponentAppTrait as App;
+    pub use crate::ComponentContext as Context;
+    pub use crate::create_component_entry_points as create_entry_points;
+    pub use crate::{Drawable, Vec2};
+    pub use include_dir;
+    pub use include_dir::include_dir as include_assets;
+}
