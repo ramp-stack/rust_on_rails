@@ -81,7 +81,7 @@ impl Drawable for ItemType {
     fn offset(&self) -> Vec2 {Vec2::new(0, 0)}
 }
 
-pub struct Component(Vec<Box<dyn Drawable>>, Rect);//Children, Bound, ShrinkToFit: bool, Replacing this with Transparent background Container for false
+pub struct Component(Vec<Box<dyn Drawable>>, pub Rect);//Children, Bound, ShrinkToFit: bool, Replacing this with Transparent background Container for false
 
 impl Drawable for Component {
     fn draw(&self, ctx: &mut ComponentContext,  offset: Vec2, bound: Rect) -> Vec<CanvasItem> {

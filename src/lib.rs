@@ -8,16 +8,16 @@ pub use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 pub use wasm_bindgen;
 
-mod canvas;
-pub use canvas::{CanvasAppTrait, CanvasContext, CanvasApp};
-pub use canvas::{ItemType, Shape as ShapeType, Text as CanvasText, image, ImageKey, FontKey, CanvasItem, DrawCommand};
+pub mod canvas;
 
 #[cfg(feature = "canvas")]
 pub mod prelude {
     pub use crate::*;
-    pub use crate::CanvasText as Text;
-    pub use crate::CanvasAppTrait as App;
-    pub use crate::CanvasContext as Context;
+    pub use crate::canvas::CanvasApp;
+    pub use crate::canvas::{CanvasItem, Area, Shape, Text};
+    pub use crate::canvas::{ImageKey, FontKey};
+    pub use crate::canvas::CanvasAppTrait as App;
+    pub use crate::canvas::CanvasContext as Context;
     pub use crate::create_canvas_entry_points as create_entry_points;
 }
 
