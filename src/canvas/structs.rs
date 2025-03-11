@@ -67,13 +67,12 @@ pub enum Shape {
 impl Shape {
     pub(crate) fn into_inner(self, size: Size) -> wgpu_canvas::shape::ShapeType {
         let p = |s: (u32, u32)| size.to_physical(s.0, s.1);
-        let st = |s: u32| size.to_physical(s, s);
         match self {
             Shape::Ellipse(stroke, s) => wgpu_canvas::shape::ShapeType::Ellipse(
-                wgpu_canvas::shape::Ellipse{stroke: st(stroke), size: p(s)}
+                wgpu_canvas::shape::Ellipse{stroke: size.scale_physical(stroke), size: p(s)}
             ),
             Shape::Rectangle(stroke, s) => wgpu_canvas::shape::ShapeType::Rectangle(
-                wgpu_canvas::shape::Rectangle{stroke: st(stroke), size: p(s)}
+                wgpu_canvas::shape::Rectangle{stroke: size.scale_physical(stroke), size: p(s)}
             ),
             Shape::RoundedRectangle(stroke, s, corner_radius) => {
                 let corner_radius = size.scale_physical(corner_radius);
@@ -84,7 +83,7 @@ impl Shape {
                 wgpu_canvas::shape::ShapeType::RoundedRectangle(
                     wgpu_canvas::shape::RoundedRectangle{
                         shape: wgpu_canvas::shape::GenericShape{
-                            stroke: st(stroke),
+                            stroke: size.scale_physical(stroke),
                             size: p(s)
                         },
                         corner_radius

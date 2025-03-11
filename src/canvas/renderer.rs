@@ -106,7 +106,7 @@ impl Canvas {
                 view: if SAMPLE_COUNT > 1 {self.msaa_view.as_ref().unwrap()} else {&frame_view},
                 resolve_target: if SAMPLE_COUNT > 1 {Some(&frame_view)} else {None},
                 ops: Operations {
-                    load: LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    load: LoadOp::Clear(wgpu::Color::WHITE),
                     store: StoreOp::Store,
                 },
             })],

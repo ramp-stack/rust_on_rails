@@ -11,8 +11,8 @@ log = "0.4.25"
 winit = {version="0.30.9", features=["android-native-activity"]}
 wgpu = "24.0.1"
 include_dir = {version="0.7.4", features=["glob"]}
-wgpu_canvas = "3.1.0"
-#wgpu_canvas = {path="../wgpu_canvas"}
+#wgpu_canvas = "3.1.0"
+wgpu_canvas = {path="../wgpu_canvas"}
 hex = "0.4.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
