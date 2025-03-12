@@ -5,7 +5,7 @@ use wgpu_canvas::{CanvasRenderer, CanvasAtlas, CanvasItem};
 
 use std::cmp::min;
 
-const SAMPLE_COUNT: u32 = 1;
+const SAMPLE_COUNT: u32 = 4;
 
 pub struct Canvas {
     surface: Surface<'static>,
