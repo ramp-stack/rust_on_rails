@@ -14,7 +14,7 @@ pub mod canvas;
 pub mod prelude {
     pub use crate::*;
     pub use crate::canvas::CanvasApp;
-    pub use crate::canvas::{CanvasItem, Area, Shape, Ellipse, Text};
+    pub use crate::canvas::{CanvasItem, Area, Shape, Ellipse, Text, Image};
     pub use crate::canvas::{ImageKey, FontKey};
     pub use crate::canvas::CanvasAppTrait as App;
     pub use crate::canvas::CanvasContext as Context;
