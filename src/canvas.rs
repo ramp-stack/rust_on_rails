@@ -1,12 +1,12 @@
 use super::{WinitAppTrait, winit::WinitWindow};
 
 use wgpu_canvas::CanvasAtlas;
-pub use wgpu_canvas::{image::ImageKey, text::FontKey, image::image::RgbaImage};
+pub use wgpu_canvas::{ShapeKey, ImageKey, FontKey, Shape, Ellipse, Image};
 
 use std::time::Instant;
 
 mod structs;
-pub use structs::{Area, Shape, Text, CanvasItem};
+pub use structs::{Area, Text, CanvasItem};
 use structs::Size;
 
 mod renderer;
@@ -21,28 +21,29 @@ pub struct CanvasContext{
 }
 
 impl CanvasContext {
-    pub fn add_image(&mut self, image: RgbaImage) -> ImageKey {self.atlas.image.add(image)}
-    pub fn remove_image(&mut self, key: &ImageKey) {self.atlas.image.remove(key)}
-    pub fn contains_image(&mut self, key: &ImageKey) -> bool {self.atlas.image.contains(key)}
+    pub fn add_shape(&mut self, shape: impl Shape) -> FontKey {self.atlas.add_shape(shape)}
+    pub fn remove_shape(&mut self, key: &ShapeKey) {self.atlas.remove_shape(key)}
 
-    pub fn add_font(&mut self, font: Vec<u8>) -> FontKey {self.atlas.font.add(font)}
-    pub fn remove_font(&mut self, key: &FontKey) {self.atlas.font.remove(key)}
-    pub fn contains_font(&mut self, key: &FontKey) -> bool {self.atlas.font.contains(key)}
+    pub fn add_image(&mut self, image: Image) -> ImageKey {self.atlas.add_image(image)}
+    pub fn remove_image(&mut self, key: &ImageKey) {self.atlas.remove_image(key)}
 
-    pub fn messure_text(&mut self, t: &Text) -> (u32, u32) {self.atlas.font.messure_text(&t.into_inner(self.size))}
+    pub fn add_font(&mut self, font: Vec<u8>) -> FontKey {self.atlas.add_font(font)}
+    pub fn remove_font(&mut self, key: &FontKey) {self.atlas.remove_font(key)}
+
+    pub fn messure_text(&mut self, t: &Text) -> (u32, u32) {self.atlas.messure_text(&t.into_inner(self.size))}
 
     pub fn width(&self) -> u32 {self.size.logical().0}
     pub fn height(&self) -> u32 {self.size.logical().1}
 
     pub fn clear(&mut self, color: &'static str) {
         self.components.clear();
-        self.components.push(
-            CanvasItem::Shape(
-                Area((0, 0), None),
-                Shape::Rectangle(0, self.size.logical()),
-                color, 255
-            ).into_inner(u16::MAX, self.size)
-        );
+      //self.components.push(
+      //    CanvasItem::Shape(
+      //        Area((0, 0), None),
+      //        Shape::Rectangle(0, self.size.logical()),
+      //        color, 255
+      //    ).into_inner(u16::MAX, self.size)
+      //);
     }
 
     pub fn draw(&mut self, item: CanvasItem) {
