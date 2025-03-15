@@ -8,7 +8,7 @@ pub use wgpu_canvas::{Font, Image};
 use std::time::Instant;
 
 mod structs;
-pub use structs::{Area, CanvasItem, Shape};
+pub use structs::{Area, CanvasItem, Shape, Text};
 use structs::Size;
 
 mod renderer;
@@ -31,8 +31,6 @@ impl CanvasContext {
         Image::new(&mut self.atlas, image)
     }
 
-    //pub fn messure_text(&mut self, t: &Text) -> (u32, u32) {self.atlas.messure_text(&t.into_inner(self.size))}
-
     pub fn width(&self) -> u32 {self.size.logical().0}
     pub fn height(&self) -> u32 {self.size.logical().1}
 
@@ -49,8 +47,8 @@ impl CanvasContext {
 
     pub fn draw(&mut self, area: Area, item: CanvasItem) {
         let z = u16::MAX-1-(self.components.len()) as u16;
-        let area = area.into_inner(z, self.size);
-        self.components.push((area, item.0));
+        let area = area.into_inner(z, &self.size);
+        self.components.push((area, item.into_inner(&self.size)));
     }
 }
 
