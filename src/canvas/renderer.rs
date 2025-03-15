@@ -32,7 +32,7 @@ impl Canvas {
         ).await.unwrap();
 
         let mut limits = Limits::downlevel_webgl2_defaults();
-        limits.max_texture_dimension_2d = 4096;
+        limits.max_texture_dimension_2d = 8192;
 
         let (device, queue) = adapter.request_device(
             &DeviceDescriptor {
