@@ -1,4 +1,4 @@
-use super::{ShapeKey, ImageKey, FontKey};
+use super::{CanvasContext, Image, Font};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Size {
@@ -57,105 +57,79 @@ impl Area {
     }
 }
 
-//  #[derive(Clone, Copy, Debug)]
-//  pub enum Shape {
-//      Ellipse(u32, (u32, u32)),
-//      Rectangle(u32, (u32, u32)),
-//      RoundedRectangle(u32, (u32, u32), u32),
-//  }
-
-//  impl Shape {
-//      pub(crate) fn into_inner(self, size: Size) -> wgpu_canvas::shape::ShapeType {
-//          let p = |s: (u32, u32)| size.to_physical(s.0, s.1);
-//          match self {
-//              Shape::Ellipse(stroke, s) => wgpu_canvas::shape::ShapeType::Ellipse(
-//                  wgpu_canvas::shape::Ellipse{stroke: size.scale_physical(stroke), size: p(s)}
-//              ),
-//              Shape::Rectangle(stroke, s) => wgpu_canvas::shape::ShapeType::Rectangle(
-//                  wgpu_canvas::shape::Rectangle{stroke: size.scale_physical(stroke), size: p(s)}
-//              ),
-//              Shape::RoundedRectangle(stroke, s, corner_radius) => {
-//                  let corner_radius = size.scale_physical(corner_radius);
-//                //let pcr = size.to_physical(corner_radius, corner_radius);
-//                //let size = p(s);
-//                //let corner_radius = if size.0 > size.1 {pcr.0} else {pcr.1};
-
-//                  wgpu_canvas::shape::ShapeType::RoundedRectangle(
-//                      wgpu_canvas::shape::RoundedRectangle{
-//                          shape: wgpu_canvas::shape::GenericShape{
-//                              stroke: size.scale_physical(stroke),
-//                              size: p(s)
-//                          },
-//                          corner_radius
-//                      }
-//                  )
-//              }
-//          }
-//      }
-//  }
-
 #[derive(Clone, Copy, Debug)]
-pub struct Text {
-    pub text: &'static str,
-    pub color: &'static str,
-    pub alpha: u8,
-    pub width: Option<u32>,
-    pub size: u32,
-    pub line_height: u32,
-    pub font: FontKey,
+pub enum Shape {
+    Ellipse(u32, (u32, u32)),
+    Rectangle(u32, (u32, u32)),
+    RoundedRectangle(u32, (u32, u32), u32),
 }
 
-impl Text {
-    pub fn new(
+impl Shape {
+    pub(crate) fn into_inner(self, size: Size) -> wgpu_canvas::Shape {
+        let p = |s: (u32, u32)| size.to_physical(s.0, s.1);
+        match self {
+            Shape::Ellipse(stroke, s) => wgpu_canvas::Shape::Ellipse(
+                size.scale_physical(stroke), p(s)
+            ),
+            Shape::Rectangle(stroke, s) => wgpu_canvas::Shape::Rectangle(
+                size.scale_physical(stroke), p(s)
+            ),
+            Shape::RoundedRectangle(stroke, s, corner_radius) => {
+                let corner_radius = size.scale_physical(corner_radius);
+                wgpu_canvas::Shape::RoundedRectangle(
+                    size.scale_physical(stroke), p(s), corner_radius
+                )
+            }
+        }
+    }
+}
+
+//CanvasItems:
+//1. Cheap to clone
+//2. Can only modify cheap to change fields
+//3. Requires context for new
+
+#[derive(Debug, Clone)]
+pub struct CanvasItem(pub(crate) wgpu_canvas::CanvasItem);
+
+impl CanvasItem {
+    pub fn shape(ctx: &mut CanvasContext, shape: Shape, color: &'static str, alpha: u8) -> Self {
+        let ce = "Color was not a Hex Value";
+        let c: [u8; 3] = hex::decode(color).expect(ce).try_into().expect(ce);
+        CanvasItem(wgpu_canvas::CanvasItem::shape(
+            &mut ctx.atlas, shape.into_inner(ctx.size), (c[0], c[1], c[2], alpha)
+        ))
+    }
+
+    pub fn image(ctx: &mut CanvasContext, shape: Shape, image: Image) -> Self {
+        CanvasItem(wgpu_canvas::CanvasItem::image(
+            &mut ctx.atlas, shape.into_inner(ctx.size), image
+        ))
+    }
+
+    pub fn text(
+        ctx: &mut CanvasContext,
         text: &'static str,
         color: &'static str,
         alpha: u8,
         width: Option<u32>,
-        size: u32,
+        s: u32,
         line_height: u32,
-        font: FontKey,
+        font: Font,
     ) -> Self {
-        Text{text, color, alpha, width, size, line_height, font}
-    }
-
-    pub(crate) fn into_inner(self, size: Size) -> wgpu_canvas::Text {
         let ce = "Color was not a Hex Value";
-        let c: [u8; 3] = hex::decode(self.color).expect(ce).try_into().expect(ce);
-        wgpu_canvas::Text{
-            text: self.text,
-            color: (c[0], c[1], c[2], self.alpha),
-            width: self.width.map(|w| size.scale_physical(w)),
-            size: size.scale_physical(self.size),
-            line_height: size.scale_physical(self.line_height),
-            font: self.font
-        }
+        let c: [u8; 3] = hex::decode(color).expect(ce).try_into().expect(ce);
+        CanvasItem(wgpu_canvas::CanvasItem::text(
+            text,
+            (c[0], c[1], c[2], alpha),
+            width.map(|w| ctx.size.scale_physical(w)),
+            ctx.size.scale_physical(s),
+            ctx.size.scale_physical(line_height),
+            font
+        ))
     }
-}
 
-#[derive(Clone, Copy, Debug)]
-pub enum CanvasItem {
-    Shape(Area, ShapeKey),
-    Image(Area, ImageKey),
-    Text(Area, Text),
-}
-
-impl CanvasItem {
-    pub(crate) fn into_inner(self, z_index: u16, size: Size) -> wgpu_canvas::CanvasItem {
-        let (area, item_type) = match self {
-            CanvasItem::Shape(area, shape) => {
-                (area, wgpu_canvas::ItemType::Shape(shape))
-            },
-            CanvasItem::Image(area, image) => {
-                (area, wgpu_canvas::ItemType::Image(image))
-            },
-            CanvasItem::Text(area, text) => {
-                (area, wgpu_canvas::ItemType::Text(text.into_inner(size)))
-            }
-        };
-
-        wgpu_canvas::CanvasItem{
-            area: area.into_inner(z_index, size),
-            item_type
-        }
+    pub fn size(&self, ctx: &mut CanvasContext) -> (u32, u32) {
+        self.0.size(&mut ctx.atlas)
     }
 }

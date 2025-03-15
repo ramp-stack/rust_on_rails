@@ -1,12 +1,14 @@
 use super::{WinitAppTrait, winit::WinitWindow};
 
+use image::{GenericImage, RgbaImage};
+
 use wgpu_canvas::CanvasAtlas;
-pub use wgpu_canvas::{ShapeKey, ImageKey, FontKey, Shape, Ellipse, Image};
+pub use wgpu_canvas::{Font, Image};
 
 use std::time::Instant;
 
 mod structs;
-pub use structs::{Area, Text, CanvasItem};
+pub use structs::{Area, CanvasItem, Shape};
 use structs::Size;
 
 mod renderer;
@@ -14,23 +16,23 @@ use renderer::Canvas;
 
 #[derive(Default)]
 pub struct CanvasContext{
-    components: Vec<wgpu_canvas::CanvasItem>,
+    components: Vec<(wgpu_canvas::Area, wgpu_canvas::CanvasItem)>,
     atlas: CanvasAtlas,
     size: Size,
     pub position: (u32, u32),
 }
 
 impl CanvasContext {
-    pub fn add_shape(&mut self, shape: impl Shape) -> FontKey {self.atlas.add_shape(shape)}
-    pub fn remove_shape(&mut self, key: &ShapeKey) {self.atlas.remove_shape(key)}
 
-    pub fn add_image(&mut self, image: Image) -> ImageKey {self.atlas.add_image(image)}
-    pub fn remove_image(&mut self, key: &ImageKey) {self.atlas.remove_image(key)}
+    pub fn new_font(&mut self, font: Vec<u8>) -> Font {
+        Font::new(&mut self.atlas, font)
+    }
+    pub fn new_image(&mut self, image: RgbaImage) -> Image {
+        let d = image.dimensions();
+        Image::new(&mut self.atlas, image.into_raw(), d.0, d.1)
+    }
 
-    pub fn add_font(&mut self, font: Vec<u8>) -> FontKey {self.atlas.add_font(font)}
-    pub fn remove_font(&mut self, key: &FontKey) {self.atlas.remove_font(key)}
-
-    pub fn messure_text(&mut self, t: &Text) -> (u32, u32) {self.atlas.messure_text(&t.into_inner(self.size))}
+    //pub fn messure_text(&mut self, t: &Text) -> (u32, u32) {self.atlas.messure_text(&t.into_inner(self.size))}
 
     pub fn width(&self) -> u32 {self.size.logical().0}
     pub fn height(&self) -> u32 {self.size.logical().1}
@@ -46,9 +48,10 @@ impl CanvasContext {
       //);
     }
 
-    pub fn draw(&mut self, item: CanvasItem) {
+    pub fn draw(&mut self, area: Area, item: CanvasItem) {
         let z = u16::MAX-1-(self.components.len()) as u16;
-        self.components.push(item.into_inner(z, self.size));
+        let area = area.into_inner(z, self.size);
+        self.components.push((area, item.0));
     }
 }
 
@@ -69,9 +72,11 @@ pub struct CanvasApp<A: CanvasAppTrait> {
 }
 
 impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
-    async fn new(window: WinitWindow) -> Self {
-        let canvas = Canvas::new(window).await;
+    async fn new(window: WinitWindow, width: u32, height: u32, scale_factor: f64) -> Self {
+        let mut canvas = Canvas::new(window).await;
+        let (width, height) = canvas.resize(width, height);
         let mut context = CanvasContext::default();
+        context.size = Size::new(width, height, scale_factor);
         let app = A::new(&mut context).await;
 
         CanvasApp{

@@ -1,7 +1,7 @@
 use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue};
 
 use crate::winit::WinitWindow;
-use wgpu_canvas::{CanvasRenderer, CanvasAtlas, CanvasItem};
+use wgpu_canvas::{CanvasRenderer, CanvasAtlas, CanvasItem, Area};
 
 use std::cmp::min;
 
@@ -86,7 +86,7 @@ impl Canvas {
         }
     }
 
-    pub fn prepare(&mut self, atlas: &mut CanvasAtlas, items: Vec<CanvasItem>) {
+    pub fn prepare(&mut self, atlas: &mut CanvasAtlas, items: Vec<(Area, CanvasItem)>) {
         self.canvas_renderer.prepare(
             &self.device,
             &self.queue,

@@ -19,7 +19,7 @@ pub type WinitWindow = Arc<Window>;
 pub trait WinitAppTrait {
     const LOG_LEVEL: log::Level = log::Level::Error;
 
-    fn new(window: WinitWindow) -> impl std::future::Future<Output = Self> where Self: Sized;
+    fn new(window: WinitWindow, width: u32, height: u32, scale_factor: f64) -> impl std::future::Future<Output = Self> where Self: Sized;
     fn prepare(&mut self, width: u32, height: u32, scale_factor: f64) -> impl std::future::Future<Output = ()>;
     fn render(&mut self) -> impl std::future::Future<Output = ()>;
 
@@ -111,7 +111,7 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
 
         #[cfg(not(target_arch="wasm32"))]
         {
-            *app.lock().unwrap() = Some(self.runtime.block_on(A::new(self.window())));
+            *app.lock().unwrap() = Some(self.runtime.block_on(A::new(self.window(), self.width, self.height, self.scale_factor)));
         }
 
         #[cfg(target_arch="wasm32")]
