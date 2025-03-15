@@ -28,8 +28,7 @@ impl CanvasContext {
         Font::new(&mut self.atlas, font)
     }
     pub fn new_image(&mut self, image: RgbaImage) -> Image {
-        let d = image.dimensions();
-        Image::new(&mut self.atlas, image.into_raw(), d.0, d.1)
+        Image::new(&mut self.atlas, image)
     }
 
     //pub fn messure_text(&mut self, t: &Text) -> (u32, u32) {self.atlas.messure_text(&t.into_inner(self.size))}
