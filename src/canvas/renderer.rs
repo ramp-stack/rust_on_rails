@@ -60,7 +60,7 @@ impl Canvas {
         let multisample = MultisampleState {
             count: SAMPLE_COUNT,
             mask: !0,
-            alpha_to_coverage_enabled: true,
+            alpha_to_coverage_enabled: false,
         };
 
         let depth_stencil = DepthStencilState {
@@ -106,7 +106,7 @@ impl Canvas {
                 view: if SAMPLE_COUNT > 1 {self.msaa_view.as_ref().unwrap()} else {&frame_view},
                 resolve_target: if SAMPLE_COUNT > 1 {Some(&frame_view)} else {None},
                 ops: Operations {
-                    load: LoadOp::Clear(wgpu::Color::WHITE),
+                    load: LoadOp::Clear(wgpu::Color::TRANSPARENT),
                     store: StoreOp::Store,
                 },
             })],
