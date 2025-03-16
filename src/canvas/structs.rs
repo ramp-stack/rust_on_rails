@@ -1,4 +1,4 @@
-use super::{CanvasContext, Image, Font};
+use super::{Image, Font};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Size {
@@ -11,7 +11,7 @@ impl Size {
     pub fn new(width: u32, height: u32, scale_factor: f64) -> Self {
         Size{width, height, scale_factor}
     }
-    pub fn to_logical(&self, px: u32, py: u32) -> (u32, u32) {
+    pub fn new_logical(&self, px: u32, py: u32) -> (u32, u32) {
         (
             (px.min(self.width) as f64 / self.scale_factor).floor() as u32,
             (py.min(self.height) as f64 / self.scale_factor).floor() as u32,
@@ -22,7 +22,7 @@ impl Size {
         (x as f64 * self.scale_factor).round() as u32
     }
 
-    pub fn to_physical(&self, lx: u32, ly: u32) -> (u32, u32) {
+    pub fn new_physical(&self, lx: u32, ly: u32) -> (u32, u32) {
         (
             ((lx as f64 * self.scale_factor).round() as u32).min(self.width),
             ((ly as f64 * self.scale_factor).round() as u32).min(self.height),
@@ -30,7 +30,7 @@ impl Size {
     }
 
     pub fn logical(&self) -> (u32, u32) {
-        self.to_logical(self.width, self.height)
+        self.new_logical(self.width, self.height)
     }
 
     pub fn physical(&self) -> (u32, u32) {
@@ -45,14 +45,14 @@ impl Area {
     pub(crate) fn into_inner(self, z_index: u16, size: &Size) -> wgpu_canvas::Area {
         let psize = size.physical();
         let bounds = self.1.map(|(x, y, w, h)| {
-            let xy = size.to_physical(x, y);
-            let wh = size.to_physical(w, h);
+            let xy = size.new_physical(x, y);
+            let wh = size.new_physical(w, h);
             (xy.0, xy.1, wh.0, wh.1)
         }).unwrap_or((0, 0, psize.0, psize.1));
         wgpu_canvas::Area{
             z_index,
             bounds,
-            offset: size.to_physical(self.0.0, self.0.1),
+            offset: size.new_physical(self.0.0, self.0.1),
         }
     }
 }
@@ -66,7 +66,7 @@ pub enum Shape {
 
 impl Shape {
     pub(crate) fn into_inner(self, size: &Size) -> wgpu_canvas::Shape {
-        let p = |s: (u32, u32)| size.to_physical(s.0, s.1);
+        let p = |s: (u32, u32)| size.new_physical(s.0, s.1);
         match self {
             Shape::Ellipse(stroke, s) => wgpu_canvas::Shape::Ellipse(
                 size.scale_physical(stroke), p(s)

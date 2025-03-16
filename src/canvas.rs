@@ -1,6 +1,6 @@
 use super::{WinitAppTrait, winit::WinitWindow};
 
-use image::{GenericImage, RgbaImage};
+use image::RgbaImage;
 
 use wgpu_canvas::CanvasAtlas;
 pub use wgpu_canvas::{Font, Image};
@@ -23,7 +23,6 @@ pub struct CanvasContext{
 }
 
 impl CanvasContext {
-
     pub fn new_font(&mut self, font: Vec<u8>) -> Font {
         Font::new(&mut self.atlas, font)
     }
@@ -36,13 +35,13 @@ impl CanvasContext {
 
     pub fn clear(&mut self, color: &'static str) {
         self.components.clear();
-      //self.components.push(
-      //    CanvasItem::Shape(
-      //        Area((0, 0), None),
-      //        Shape::Rectangle(0, self.size.logical()),
-      //        color, 255
-      //    ).into_inner(u16::MAX, self.size)
-      //);
+        self.components.push((
+            Area((0, 0), None).into_inner(u16::MAX, &self.size),
+            CanvasItem::Shape(
+                Shape::Rectangle(0, self.size.logical()),
+                color, 255
+            ).into_inner(&self.size)
+        ));
     }
 
     pub fn draw(&mut self, area: Area, item: CanvasItem) {
@@ -72,8 +71,10 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
     async fn new(window: WinitWindow, width: u32, height: u32, scale_factor: f64) -> Self {
         let mut canvas = Canvas::new(window).await;
         let (width, height) = canvas.resize(width, height);
-        let mut context = CanvasContext::default();
-        context.size = Size::new(width, height, scale_factor);
+        let mut context = CanvasContext{
+            size: Size::new(width, height, scale_factor),
+            ..Default::default()
+        };
         let app = A::new(&mut context).await;
 
         CanvasApp{
@@ -104,7 +105,7 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         self.app.on_click(&mut self.context).await
     }
     async fn on_move(&mut self, x: u32, y: u32) {
-        self.context.position = self.context.size.to_logical(x, y);
+        self.context.position = self.context.size.new_logical(x, y);
         self.app.on_move(&mut self.context).await
     }
     async fn on_press(&mut self, t: String) {
