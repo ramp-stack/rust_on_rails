@@ -62,7 +62,6 @@ impl CanvasContext {
 
 pub trait CanvasAppTrait {
     fn new(ctx: &mut CanvasContext) -> impl std::future::Future<Output = Self> where Self: Sized;
-    fn on_tick(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
 
     fn on_tick(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
     fn on_click(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
