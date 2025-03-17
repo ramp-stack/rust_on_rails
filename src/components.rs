@@ -158,48 +158,7 @@ impl ComponentBuilder for Image {
 }
 
 
-#[derive(Clone)]
-pub struct Handle{
-    font: Option<Arc<FontKey>>,
-    image: Option<Arc<ImageKey>>,
-}
-
-impl Handle {
-    pub fn u(&self) -> u64 {
-        **self.font.as_ref().unwrap_or_else(|| self.image.as_ref().unwrap())
-    }
-
-    fn new_font(key: FontKey) -> Self {
-        Handle{font: Some(Arc::new(key)), image: None}
-    }
-
-    fn new_image(key: ImageKey) -> Self {
-        Handle{font: None, image: Some(Arc::new(key))}
-    }
-
-    fn try_drop(self, ctx: &mut CanvasContext) -> Option<Self> {
-        if let Some(font) = self.font {
-            match Arc::try_unwrap(font) {
-                Ok(f) => {
-                    ctx.atlas.remove_font(&f);
-                    None
-                },
-                Err(e) => Some(Handle{font: Some(e), image: None})
-            }
-        } else if let Some(image) = self.image {
-            match Arc::try_unwrap(image) {
-                Ok(i) => {
-                    ctx.atlas.remove_image(&i);
-                    None
-                },
-                Err(e) => Some(Handle{font: None, image: Some(e)})
-            }
-        } else {None}
-    }
-}
-
 pub struct ComponentContext<'a> {
-    handles: &'a mut Vec<Handle>,
     assets: &'a mut Vec<Dir<'static>>,
     canvas: &'a mut CanvasContext
 }
@@ -278,7 +237,7 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         ComponentApp{handles, assets, app, _p: std::marker::PhantomData::<A>}
     }
 
-    async fn draw(&mut self, ctx: &mut CanvasContext) {
+    async fn on_tick(&mut self, ctx: &mut CanvasContext) {
         self.trim(ctx);
         let width = ctx.screen_width;
         let height = ctx.screen_height;
