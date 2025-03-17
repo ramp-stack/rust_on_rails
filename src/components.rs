@@ -1,4 +1,6 @@
-use super::{CanvasAppTrait, CanvasContext, CanvasItem, ShapeType, ItemType, image, CanvasText, ImageKey, FontKey};
+use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area, Font, ShapeType}; // ShapeType, ItemType, image, CanvasText, ImageKey, FontKey
+use crate::canvas::Text as CText;
+use crate::canvas::Image as CImage;
 
 use include_dir::{DirEntry, Dir};
 
@@ -65,18 +67,18 @@ impl From<Vec2> for (u32, u32) {
 }
 
 pub trait Drawable {
-    fn draw(&self, ctx: &mut ComponentContext, offset: Vec2, bound: Rect) -> Vec<CanvasItem>;
+    fn draw(&self, ctx: &mut ComponentContext, offset: Vec2, bound: Rect) -> Vec<(Area, CanvasItem)>;
     fn size(&self, ctx: &mut ComponentContext) -> Vec2;
     fn offset(&self) -> Vec2;
 }
 
-impl Drawable for ItemType {
-    fn draw(&self, _ctx: &mut ComponentContext, offset: Vec2, bound: Rect) -> Vec<CanvasItem> {
-        vec![CanvasItem(self.clone(), offset.into(), Some(bound.into()))]
+impl Drawable for CanvasItem {
+    fn draw(&self, _ctx: &mut ComponentContext, offset: Vec2, bound: Rect) -> Vec<(Area, CanvasItem)> {
+        vec![(Area(offset.into(), Some(bound.into())), self.clone())]
     }
     fn size(&self, ctx: &mut ComponentContext) -> Vec2 {
-        let size = self.size(&mut ctx.canvas.atlas);
-        Vec2::new(size.0, size.1)
+        let size = self.size(ctx);
+        Vec2::new(size.x, size.y)
     }
     fn offset(&self) -> Vec2 {Vec2::new(0, 0)}
 }
@@ -84,7 +86,7 @@ impl Drawable for ItemType {
 pub struct Component(Vec<Box<dyn Drawable>>, pub Rect);//Children, Bound, ShrinkToFit: bool, Replacing this with Transparent background Container for false
 
 impl Drawable for Component {
-    fn draw(&self, ctx: &mut ComponentContext,  offset: Vec2, bound: Rect) -> Vec<CanvasItem> {
+    fn draw(&self, ctx: &mut ComponentContext,  offset: Vec2, bound: Rect) -> Vec<(Area, CanvasItem)> {
         let offset = offset+self.1.position();
         let bound = Rect::new(
             bound.x.max(bound.x+self.1.x), bound.y.max(bound.y+self.1.y),//New bound offset
@@ -119,11 +121,12 @@ pub trait ComponentBuilder {
 }
 
 #[derive(Clone)]
-pub struct Text(pub &'static str, pub &'static str, pub u32, pub u32, pub Handle);
+pub struct Text(pub &'static str, pub &'static str, pub u8, pub Option<u32>, pub u32, pub u32, pub Font);
+// Text, Color, Opacity, Optional Width, text size, line height, font
 
 impl ComponentBuilder for Text {
     fn build_children(&self, _ctx: &mut ComponentContext, max_size: Vec2) -> Vec<Box<dyn Drawable>> {
-        vec![Box::new(ItemType::Text(CanvasText::new(self.0, self.1, Some(max_size.x), self.2, self.3, self.4.u())))]
+        vec![Box::new(CanvasItem::Text(CText::new(self.0, self.1, self.2, self.3, self.4, self.5, self.6.clone())))]
     }
 
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
@@ -132,11 +135,12 @@ impl ComponentBuilder for Text {
 }
 
 #[derive(Clone)]
-pub struct Shape(pub ShapeType, pub &'static str, pub Option<u16>);
+pub struct Shape(pub ShapeType, pub &'static str, pub u8);
+//  Shape, color, opacity
 
 impl ComponentBuilder for Shape {
     fn build_children(&self, _ctx: &mut ComponentContext, _max_size: Vec2) -> Vec<Box<dyn Drawable>> {
-        vec![Box::new(ItemType::Shape(self.0.clone(), self.1, self.2))]
+        vec![Box::new(CanvasItem::Shape(self.0, self.1, self.2))]
     }
 
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
@@ -145,11 +149,12 @@ impl ComponentBuilder for Shape {
 }
 
 #[derive(Clone)]
-pub struct Image(pub ShapeType, pub Handle);
+pub struct Image(pub ShapeType, pub CImage);
+// Shape, Image
 
 impl ComponentBuilder for Image {
     fn build_children(&self, _ctx: &mut ComponentContext, _max_size: Vec2) -> Vec<Box<dyn Drawable>> {
-        vec![Box::new(ItemType::Image(self.0.clone(), self.1.u()))]
+        vec![Box::new(CanvasItem::Image(self.0, self.1.clone()))]
     }
 
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
@@ -158,55 +163,55 @@ impl ComponentBuilder for Image {
 }
 
 
-#[derive(Clone)]
-pub struct Handle{
-    font: Option<Arc<FontKey>>,
-    image: Option<Arc<ImageKey>>,
-}
+// #[derive(Clone)]
+// pub struct Handle{
+//     font: Option<Arc<FontKey>>,
+//     image: Option<Arc<ImageKey>>,
+// }
 
-impl Handle {
-    pub fn u(&self) -> u64 {
-        **self.font.as_ref().unwrap_or_else(|| self.image.as_ref().unwrap())
-    }
+// impl Handle {
+//     pub fn u(&self) -> u64 {
+//         **self.font.as_ref().unwrap_or_else(|| self.image.as_ref().unwrap())
+//     }
 
-    fn new_font(key: FontKey) -> Self {
-        Handle{font: Some(Arc::new(key)), image: None}
-    }
+//     fn new_font(key: FontKey) -> Self {
+//         Handle{font: Some(Arc::new(key)), image: None}
+//     }
 
-    fn new_image(key: ImageKey) -> Self {
-        Handle{font: None, image: Some(Arc::new(key))}
-    }
+//     fn new_image(key: ImageKey) -> Self {
+//         Handle{font: None, image: Some(Arc::new(key))}
+//     }
 
-    fn try_drop(self, ctx: &mut CanvasContext) -> Option<Self> {
-        if let Some(font) = self.font {
-            match Arc::try_unwrap(font) {
-                Ok(f) => {
-                    ctx.atlas.remove_font(&f);
-                    None
-                },
-                Err(e) => Some(Handle{font: Some(e), image: None})
-            }
-        } else if let Some(image) = self.image {
-            match Arc::try_unwrap(image) {
-                Ok(i) => {
-                    ctx.atlas.remove_image(&i);
-                    None
-                },
-                Err(e) => Some(Handle{font: None, image: Some(e)})
-            }
-        } else {None}
-    }
-}
+//     fn try_drop(self, ctx: &mut CanvasContext) -> Option<Self> {
+//         if let Some(font) = self.font {
+//             match Arc::try_unwrap(font) {
+//                 Ok(f) => {
+//                     ctx.atlas.remove_font(&f);
+//                     None
+//                 },
+//                 Err(e) => Some(Handle{font: Some(e), image: None})
+//             }
+//         } else if let Some(image) = self.image {
+//             match Arc::try_unwrap(image) {
+//                 Ok(i) => {
+//                     ctx.atlas.remove_image(&i);
+//                     None
+//                 },
+//                 Err(e) => Some(Handle{font: None, image: Some(e)})
+//             }
+//         } else {None}
+//     }
+// }
 
 pub struct ComponentContext<'a> {
-    handles: &'a mut Vec<Handle>,
+    // handles: &'a mut Vec<Handle>,
     assets: &'a mut Vec<Dir<'static>>,
     canvas: &'a mut CanvasContext
 }
 
 impl<'a> ComponentContext<'a> {
-    pub fn new(handles: &'a mut Vec<Handle>, assets: &'a mut Vec<Dir<'static>>, canvas: &'a mut CanvasContext) -> Self {
-        ComponentContext{handles, assets, canvas}
+    pub fn new(assets: &'a mut Vec<Dir<'static>>, canvas: &'a mut CanvasContext) -> Self {
+        ComponentContext{assets, canvas}
     }
 
     pub fn include_assets(&mut self, dir: Dir<'static>) {
@@ -223,30 +228,26 @@ impl<'a> ComponentContext<'a> {
         )
     }
 
-    pub fn load_font(&mut self, font: &'static str) -> Option<Handle> {
+    pub fn load_font(&mut self, font: &'static str) -> Option<Font> {
         self.load_file(font).map(|font| self.add_font(font))
     }
 
-    pub fn load_image(&mut self, image: &'static str) -> Option<Handle> {
+    pub fn load_image(&mut self, image: &'static str) -> Option<CImage> {
         self.load_file(image).map(|image| {
             self.add_image(image::load_from_memory(&image).unwrap().to_rgba8())
         })
     }
 
-    pub fn add_image(&mut self, image: image::RgbaImage) -> Handle {
-        let handle = Handle::new_image(self.canvas.atlas.add_image(image));
-        self.handles.push(handle.clone());
-        handle
+    pub fn add_image(&mut self, image: image::RgbaImage) -> CImage {
+        self.canvas.new_image(image)
     }
 
-    pub fn add_font(&mut self, font: Vec<u8>) -> Handle {
-        let handle = Handle::new_font(self.canvas.atlas.add_font(font));
-        self.handles.push(handle.clone());
-        handle
+    pub fn add_font(&mut self, font: Vec<u8>) -> Font {
+        self.canvas.new_font(font)
     }
 
-    pub fn mesure_text(&mut self, text: &CanvasText) -> (u32, u32) {
-        self.canvas.atlas.messure_text(text)
+    pub fn measure_text(&mut self, text: &wgpu_canvas::Text) -> (u32, u32) {
+        text.size(&mut self.canvas.atlas)
     }
 }
 
@@ -255,54 +256,54 @@ pub trait ComponentAppTrait {
 }
 
 pub struct ComponentApp<A: ComponentAppTrait> {
-    handles: Option<Vec<Handle>>,
+    // handles: Option<Vec<Handle>>,
     assets: Vec<Dir<'static>>,
     app: Box<dyn ComponentBuilder>,
     _p: std::marker::PhantomData<A>
 }
 
 impl<A: ComponentAppTrait> ComponentApp<A> {
-    fn trim(&mut self, ctx: &mut CanvasContext) {
-        self.handles = Some(self.handles.take().unwrap().into_iter().flat_map(|h| {
-            h.try_drop(ctx)
-        }).collect());
-    }
+    // fn trim(&mut self, ctx: &mut CanvasContext) {
+    //     self.handles = Some(self.handles.take().unwrap().into_iter().flat_map(|h| {
+    //         h.try_drop(ctx)
+    //     }).collect());
+    // }
 }
 
 impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
     async fn new(ctx: &mut CanvasContext) -> Self {
-        let mut handles = Some(Vec::new());
+        // let mut handles = Some(Vec::new());
         let mut assets = Vec::new();
-        let mut ctx = ComponentContext::new(handles.as_mut().unwrap(), &mut assets, ctx);
+        let mut ctx = ComponentContext::new(&mut assets, ctx);
         let app = A::new(&mut ctx).await;
-        ComponentApp{handles, assets, app, _p: std::marker::PhantomData::<A>}
+        ComponentApp{assets, app, _p: std::marker::PhantomData::<A>}
     }
 
-    async fn draw(&mut self, ctx: &mut CanvasContext) {
-        self.trim(ctx);
-        let width = ctx.screen_width;
-        let height = ctx.screen_height;
-        let mut ctx = ComponentContext::new(self.handles.as_mut().unwrap(), &mut self.assets, ctx);
+    async fn on_tick(&mut self, ctx: &mut CanvasContext) {
+        // self.trim(ctx);
+        let width = ctx.size.logical().0;
+        let height = ctx.size.logical().1;
+        let mut ctx = ComponentContext::new(&mut self.assets, ctx);
         self.app.build(&mut ctx, Rect::new(0, 0, width, height))
             .draw(&mut ctx, Vec2::new(0, 0), Rect::new(0, 0, width, height))
-            .into_iter().for_each(|i| ctx.canvas.draw(i));
+            .into_iter().for_each(|(i, a)| ctx.canvas.draw(i, a))
     }
 
     async fn on_click(&mut self, ctx: &mut CanvasContext) {
-        let width = ctx.screen_width;
-        let height = ctx.screen_height;
+        let width = ctx.size.logical().0;
+        let height = ctx.size.logical().1;
         let x = ctx.position.0;
         let y = ctx.position.1;
-        let mut ctx = ComponentContext::new(self.handles.as_mut().unwrap(), &mut self.assets, ctx);
+        let mut ctx = ComponentContext::new(&mut self.assets, ctx);
         self.app.on_click(&mut ctx, Vec2::new(width, height), Vec2::new(x, y));
     }
 
     async fn on_move(&mut self, ctx: &mut CanvasContext) {
-        let width = ctx.screen_width;
-        let height = ctx.screen_height;
+        let width = ctx.size.logical().0;
+        let height = ctx.size.logical().1;
         let x = ctx.position.0;
         let y = ctx.position.1;
-        let mut ctx = ComponentContext::new(self.handles.as_mut().unwrap(), &mut self.assets, ctx);
+        let mut ctx = ComponentContext::new(&mut self.assets, ctx);
         self.app.on_move(&mut ctx, Vec2::new(width, height), Vec2::new(x, y));
     }
 

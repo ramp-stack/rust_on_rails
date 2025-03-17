@@ -23,7 +23,9 @@ pub mod prelude {
 #[cfg(feature = "components")]
 mod components;
 #[cfg(feature = "components")]
-pub use components::{ComponentAppTrait, ComponentContext, ComponentApp, Handle, Image, Shape, Text, ComponentBuilder, Drawable, Vec2, Rect};
+pub use components::{ComponentAppTrait, ComponentContext, ComponentApp, Image, Shape, Text, ComponentBuilder, Drawable, Vec2, Rect};
+#[cfg(feature = "components")]
+pub use canvas::{ShapeType, Area, CanvasItem, CanvasApp};
 
 #[cfg(feature = "components")]
 pub mod prelude {
