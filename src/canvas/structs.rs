@@ -150,3 +150,35 @@ impl CanvasItem {
 
     }
 }
+
+//  pub struct Image(wgpu_canvas::Image);
+
+//  impl Image {
+//      pub fn new(ctx: &mut CanvasContext, image: image::RgbaImage) -> Self {
+//          Image(wgpu_canvas::Image::new(ctx.atlas, image))
+//      }
+//      pub fn new_sized(ctx: &mut CanvasContext, image: image::RgbaImage, size: (u32, u32)) -> Self {
+//          let mut dst_image = DynamicImage::new_rgba8(size.0, size.1);
+//          Resizer::new().resize(
+//              &DynamicImage::from(image),
+//              &mut dst_image,
+//              &ResizeOptions::new()
+//                  .resize_alg(ResizeAlg::SuperSampling(FilterType::Bilinear, 8))
+//                  .fit_into_destination(Some((0.5, 0.5))),
+//          ).unwrap();
+//          Image::new(ctx, dst_image.into())
+//      }
+
+//      fn from_svg(&mut self, bytes: &[u8], min_size: u32, color: &'static str) -> RgbaImage {
+//          let size = self.size.scale_physical(size);
+//          let mut content = std::str::from_utf8(bytes).unwrap();
+//          content = content.replace("fill=\"white\"", &format!("fill=\"#{}\"", color));
+//          let svg = nsvg::parse_str(&content, nsvg::Units::Pixel, 96.0).unwrap();
+//          let rgba = svg.rasterize(min_size as f32/ svg.width().min(svg.height).ceil()).unwrap();
+//          Self::new_sized(RgbaImage::from_raw(rgba.dimensions().0, rgba.dimensions().1, rgba.into_raw()).unwrap())
+//      }
+
+//      pub fn into_inner(self) -> wgpu_canvas::Image {
+//          self.0
+//      }
+//  }

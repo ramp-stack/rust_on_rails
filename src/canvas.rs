@@ -30,6 +30,15 @@ impl CanvasContext {
         Image::new(&mut self.atlas, image)
     }
 
+  //fn parse_svg(&mut self, bytes: &[u8], min_size: u32, color: &'static str) -> RgbaImage {
+  //    let size = self.size.scale_physical(size);
+  //    let mut content = std::str::from_utf8(bytes).unwrap();
+  //    content = content.replace("fill=\"white\"", &format!("fill=\"#{}\"", color));
+  //    let svg = nsvg::parse_str(&content, nsvg::Units::Pixel, 96.0).unwrap();
+  //    let rgba = svg.rasterize(min_size as f32/ svg.width().min(svg.height).ceil()).unwrap();
+  //    RgbaImage::from_raw(rgba.dimensions().0, rgba.dimensions().1, rgba.into_raw()).unwrap()
+  //}
+
     pub fn width(&self) -> u32 {self.size.logical().0}
     pub fn height(&self) -> u32 {self.size.logical().1}
 
@@ -55,6 +64,7 @@ pub trait CanvasAppTrait {
     fn new(ctx: &mut CanvasContext) -> impl std::future::Future<Output = Self> where Self: Sized;
     fn on_tick(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
 
+    fn on_tick(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
     fn on_click(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
     fn on_move(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
     fn on_press(&mut self, ctx: &mut CanvasContext, t: String) -> impl std::future::Future<Output = ()>;
@@ -91,7 +101,7 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
 
         self.app.on_tick(&mut self.context).await;
         let items = self.context.components.drain(..).collect();
-        
+
         self.canvas.prepare(&mut self.context.atlas, items);
     }
 
