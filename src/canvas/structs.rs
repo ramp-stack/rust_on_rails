@@ -24,8 +24,8 @@ impl Size {
 
     pub fn new_physical(&self, lx: u32, ly: u32) -> (u32, u32) {
         (
-            ((lx as f64 * self.scale_factor).round() as u32).min(self.width),
-            ((ly as f64 * self.scale_factor).round() as u32).min(self.height),
+            ((lx as f64 * self.scale_factor).round() as u32),
+            ((ly as f64 * self.scale_factor).round() as u32),
         )
     }
 
@@ -137,7 +137,7 @@ impl CanvasItem {
                 let ce = "Color was not a Hex Value";
                 let c: [u8; 3] = hex::decode(color).expect(ce).try_into().expect(ce);
                 wgpu_canvas::CanvasItem::Shape(
-                    shape.into_inner(size), (c[0], c[1], c[2], alpha)
+                    shape.into_inner(size), wgpu_canvas::Color(c[0], c[1], c[2], alpha)
                 )
             },
             CanvasItem::Image(shape, image) => {
