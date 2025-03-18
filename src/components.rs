@@ -1,4 +1,4 @@
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area, Font, ShapeType}; // ShapeType, ItemType, image, CanvasText, ImageKey, FontKey
+use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area, Font, Shape}; // Shape, ItemType, image, CanvasText, ImageKey, FontKey
 use crate::canvas::Text as CText;
 use crate::canvas::Image as CImage;
 
@@ -135,7 +135,7 @@ impl ComponentBuilder for Text {
 }
 
 #[derive(Clone)]
-pub struct Shape(pub ShapeType, pub &'static str, pub u8);
+pub struct Shape(pub Shape, pub &'static str, pub u8);
 //  Shape, color, opacity
 
 impl ComponentBuilder for Shape {
@@ -149,7 +149,7 @@ impl ComponentBuilder for Shape {
 }
 
 #[derive(Clone)]
-pub struct Image(pub ShapeType, pub CImage);
+pub struct Image(pub Shape, pub CImage);
 // Shape, Image
 
 impl ComponentBuilder for Image {

@@ -8,7 +8,7 @@ pub use wgpu_canvas::{Font, Image};
 use std::time::Instant;
 
 mod structs;
-pub use structs::{Area, CanvasItem, ShapeType, Text};
+pub use structs::{Area, CanvasItem, Shape, Text};
 use structs::Size;
 
 mod renderer;
@@ -17,8 +17,8 @@ use renderer::Canvas;
 #[derive(Default)]
 pub struct CanvasContext{
     components: Vec<(wgpu_canvas::Area, wgpu_canvas::CanvasItem)>,
-    pub atlas: CanvasAtlas,
-    pub size: Size,
+    atlas: CanvasAtlas,
+    size: Size,
     pub position: (u32, u32),
 }
 
@@ -47,7 +47,7 @@ impl CanvasContext {
         self.components.push((
             Area((0, 0), None).into_inner(u16::MAX, &self.size),
             CanvasItem::Shape(
-                ShapeType::Rectangle(0, self.size.logical()),
+                Shape::Rectangle(0, self.size.logical()),
                 color, 255
             ).into_inner(&self.size)
         ));
