@@ -58,23 +58,23 @@ impl Area {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum Shape {
+pub enum ShapeType {
     Ellipse(u32, (u32, u32)),
     Rectangle(u32, (u32, u32)),
     RoundedRectangle(u32, (u32, u32), u32),
 }
 
-impl Shape {
+impl ShapeType {
     pub(crate) fn into_inner(self, size: &Size) -> wgpu_canvas::Shape {
         let p = |s: (u32, u32)| size.new_physical(s.0, s.1);
         match self {
-            Shape::Ellipse(stroke, s) => wgpu_canvas::Shape::Ellipse(
+            ShapeType::Ellipse(stroke, s) => wgpu_canvas::Shape::Ellipse(
                 size.scale_physical(stroke), p(s)
             ),
-            Shape::Rectangle(stroke, s) => wgpu_canvas::Shape::Rectangle(
+            ShapeType::Rectangle(stroke, s) => wgpu_canvas::Shape::Rectangle(
                 size.scale_physical(stroke), p(s)
             ),
-            Shape::RoundedRectangle(stroke, s, corner_radius) => {
+            ShapeType::RoundedRectangle(stroke, s, corner_radius) => {
                 let corner_radius = size.scale_physical(corner_radius);
                 wgpu_canvas::Shape::RoundedRectangle(
                     size.scale_physical(stroke), p(s), corner_radius
@@ -125,8 +125,8 @@ impl Text {
 
 #[derive(Debug, Clone)]
 pub enum CanvasItem {
-    Shape(Shape, &'static str, u8),
-    Image(Shape, Image),
+    Shape(ShapeType, &'static str, u8),
+    Image(ShapeType, Image),
     Text(Text)
 }
 
