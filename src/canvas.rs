@@ -16,12 +16,13 @@ pub struct CanvasContext{
     components: Vec<(wgpu_canvas::Area, wgpu_canvas::CanvasItem)>,
     atlas: CanvasAtlas,
     size: Size,
-    pub position: (u32, u32),
+    mouse: (u32, u32),
 }
 
 impl CanvasContext {
     pub fn width(&self) -> u32 {self.size.logical().0}
     pub fn height(&self) -> u32 {self.size.logical().1}
+    pub fn mouse(&self) -> (u32, u32) {self.mouse}
 
     pub fn clear(&mut self, color: Color) {
         self.components.clear();
@@ -95,7 +96,7 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         self.app.on_click(&mut self.context).await
     }
     async fn on_move(&mut self, x: u32, y: u32) {
-        self.context.position = (
+        self.context.mouse = (
             self.context.size.scale_logical(x),
             self.context.size.scale_logical(y)
         );

@@ -6,11 +6,11 @@ use crate::canvas;
 pub struct Image(canvas::Image);
 impl Image {
     pub fn new(ctx: &mut ComponentContext, image: image::RgbaImage) -> Self {
-        Image(canvas::Image::new(&mut ctx.canvas, image))
+        Image(canvas::Image::new(ctx.canvas, image))
     }
 
     pub fn svg(ctx: &mut ComponentContext, svg: &[u8], scale: f32) -> Self {
-        Image(canvas::Image::svg(&mut ctx.canvas, svg, scale))
+        Image(canvas::Image::svg(ctx.canvas, svg, scale))
     }
 
     pub(crate) fn into_inner(self) -> canvas::Image {
@@ -22,7 +22,7 @@ impl Image {
 pub struct Font(canvas::Font);
 impl Font {
     pub fn new(ctx: &mut ComponentContext, font: Vec<u8>) -> Self {
-        Font(canvas::Font::new(&mut ctx.canvas, font))
+        Font(canvas::Font::new(ctx.canvas, font))
     }
 
     pub(crate) fn into_inner(self) -> canvas::Font {

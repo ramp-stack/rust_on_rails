@@ -1,9 +1,9 @@
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area}; // Shape, ItemType, image, CanvasText, ImageKey, FontKey
+use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area};
 use crate::canvas;
 
 use include_dir::{DirEntry, Dir};
 
-use std::sync::Arc;
+use std::collections::HashMap;
 
 pub mod resources;
 use resources::Font;
@@ -82,7 +82,7 @@ impl Drawable for CanvasItem {
         vec![(Area(offset.into(), Some(bound.into())), self.clone())]
     }
     fn size(&self, ctx: &mut ComponentContext) -> Vec2 {
-        let size = CanvasItem::size(self, &mut ctx.canvas);
+        let size = CanvasItem::size(self, ctx.canvas);
         Vec2::new(size.0, size.1)
     }
     fn offset(&self) -> Vec2 {Vec2::new(0, 0)}
@@ -114,15 +114,15 @@ impl Drawable for Component {
     fn offset(&self) -> Vec2 {self.1.position()}
 }
 
-pub trait ComponentBuilder<C = ComponentContext> {
-    fn build_children(&self, ctx: &mut C, max_size: Vec2) -> Vec<Box<dyn Drawable>>;
+pub trait ComponentBuilder {
+    fn build_children(&self, ctx: &mut ComponentContext, max_size: Vec2) -> Vec<Box<dyn Drawable>>;
 
-    fn build(&self, ctx: &mut C, window: Rect) -> Component {
+    fn build(&self, ctx: &mut ComponentContext, window: Rect) -> Component {
         Component(self.build_children(ctx, window.size()), window)
     }
 
-    fn on_click(&mut self, ctx: &mut C, max_size: Vec2, position: Vec2);
-    fn on_move(&mut self, ctx: &mut C, max_size: Vec2, position: Vec2);
+    fn on_click(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2);
+    fn on_move(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2);
 }
 
 #[derive(Clone)]
@@ -130,7 +130,7 @@ pub struct Text(pub &'static str, pub Color, pub Option<u32>, pub u32, pub u32, 
 // Text, Color, Opacity, Optional Width, text size, line height, font
 
 impl ComponentBuilder for Text {
-    fn build_children(&self, _ctx: &mut ComponentContext, max_size: Vec2) -> Vec<Box<dyn Drawable>> {
+    fn build_children(&self, _ctx: &mut ComponentContext, _max_size: Vec2) -> Vec<Box<dyn Drawable>> {
         vec![Box::new(CanvasItem::Text(canvas::Text::new(self.0, self.1, self.2, self.3, self.4, self.5.clone().into_inner())))]
     }
 
@@ -167,14 +167,32 @@ impl ComponentBuilder for Image {
     fn on_move(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
 }
 
+pub trait Plugin {
+    fn name() -> &'static str where Self: Sized;
+
+    fn init(&mut self, ctx: &mut ComponentContext);
+}
+
 pub struct ComponentContext<'a> {
+    plugins: HashMap<&'static str, Box<dyn std::any::Any>>,
     assets: &'a mut Vec<Dir<'static>>,
     canvas: &'a mut CanvasContext
 }
 
 impl<'a> ComponentContext<'a> {
     pub fn new(assets: &'a mut Vec<Dir<'static>>, canvas: &'a mut CanvasContext) -> Self {
-        ComponentContext{assets, canvas}
+        ComponentContext{plugins: HashMap::new(), assets, canvas}
+    }
+
+    pub fn configure_plugin<P: Plugin + 'static>(&mut self, mut plugin: P) {
+        plugin.init(self);
+        self.plugins.insert(P::name(), Box::new(plugin));
+    }
+
+    pub fn get<P: Plugin + 'static>(&mut self) -> &mut P {
+        self.plugins.get_mut(P::name())
+            .unwrap_or_else(|| panic!("Plugin Not Configured: {}", P::name()))
+            .downcast_mut().unwrap()
     }
 
     pub fn include_assets(&mut self, dir: Dir<'static>) {
@@ -223,8 +241,7 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
     async fn on_click(&mut self, ctx: &mut CanvasContext) {
         let width = ctx.width();
         let height = ctx.height();
-        let x = ctx.position.0;
-        let y = ctx.position.1;
+        let (x, y) = ctx.mouse();
         let mut ctx = ComponentContext::new(&mut self.assets, ctx);
         self.app.on_click(&mut ctx, Vec2::new(width, height), Vec2::new(x, y));
     }
@@ -232,8 +249,7 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
     async fn on_move(&mut self, ctx: &mut CanvasContext) {
         let width = ctx.width();
         let height = ctx.height();
-        let x = ctx.position.0;
-        let y = ctx.position.1;
+        let (x, y) = ctx.mouse();
         let mut ctx = ComponentContext::new(&mut self.assets, ctx);
         self.app.on_move(&mut ctx, Vec2::new(width, height), Vec2::new(x, y));
     }
