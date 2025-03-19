@@ -1,10 +1,15 @@
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area, Font, Shape}; // Shape, ItemType, image, CanvasText, ImageKey, FontKey
-use crate::canvas::Text as CText;
-use crate::canvas::Image as CImage;
+use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area}; // Shape, ItemType, image, CanvasText, ImageKey, FontKey
+use crate::canvas;
 
 use include_dir::{DirEntry, Dir};
 
 use std::sync::Arc;
+
+pub mod resources;
+use resources::Font;
+
+pub use canvas::Shape as ShapeType;
+pub use canvas::Color;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Rect {
@@ -77,8 +82,8 @@ impl Drawable for CanvasItem {
         vec![(Area(offset.into(), Some(bound.into())), self.clone())]
     }
     fn size(&self, ctx: &mut ComponentContext) -> Vec2 {
-        let size = self.size(ctx);
-        Vec2::new(size.x, size.y)
+        let size = CanvasItem::size(self, &mut ctx.canvas);
+        Vec2::new(size.0, size.1)
     }
     fn offset(&self) -> Vec2 {Vec2::new(0, 0)}
 }
@@ -109,24 +114,24 @@ impl Drawable for Component {
     fn offset(&self) -> Vec2 {self.1.position()}
 }
 
-pub trait ComponentBuilder {
-    fn build_children(&self, ctx: &mut ComponentContext, max_size: Vec2) -> Vec<Box<dyn Drawable>>;
+pub trait ComponentBuilder<C = ComponentContext> {
+    fn build_children(&self, ctx: &mut C, max_size: Vec2) -> Vec<Box<dyn Drawable>>;
 
-    fn build(&self, ctx: &mut ComponentContext, window: Rect) -> Component {
+    fn build(&self, ctx: &mut C, window: Rect) -> Component {
         Component(self.build_children(ctx, window.size()), window)
     }
 
-    fn on_click(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2);
-    fn on_move(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2);
+    fn on_click(&mut self, ctx: &mut C, max_size: Vec2, position: Vec2);
+    fn on_move(&mut self, ctx: &mut C, max_size: Vec2, position: Vec2);
 }
 
 #[derive(Clone)]
-pub struct Text(pub &'static str, pub &'static str, pub u8, pub Option<u32>, pub u32, pub u32, pub Font);
+pub struct Text(pub &'static str, pub Color, pub Option<u32>, pub u32, pub u32, pub Font);
 // Text, Color, Opacity, Optional Width, text size, line height, font
 
 impl ComponentBuilder for Text {
     fn build_children(&self, _ctx: &mut ComponentContext, max_size: Vec2) -> Vec<Box<dyn Drawable>> {
-        vec![Box::new(CanvasItem::Text(CText::new(self.0, self.1, self.2, self.3, self.4, self.5, self.6.clone())))]
+        vec![Box::new(CanvasItem::Text(canvas::Text::new(self.0, self.1, self.2, self.3, self.4, self.5.clone().into_inner())))]
     }
 
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
@@ -135,12 +140,12 @@ impl ComponentBuilder for Text {
 }
 
 #[derive(Clone)]
-pub struct Shape(pub Shape, pub &'static str, pub u8);
+pub struct Shape(pub ShapeType, pub Color);
 //  Shape, color, opacity
 
 impl ComponentBuilder for Shape {
     fn build_children(&self, _ctx: &mut ComponentContext, _max_size: Vec2) -> Vec<Box<dyn Drawable>> {
-        vec![Box::new(CanvasItem::Shape(self.0, self.1, self.2))]
+        vec![Box::new(CanvasItem::Shape(self.0, self.1))]
     }
 
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
@@ -149,12 +154,12 @@ impl ComponentBuilder for Shape {
 }
 
 #[derive(Clone)]
-pub struct Image(pub Shape, pub CImage);
+pub struct Image(pub ShapeType, pub resources::Image, pub Option<Color>);
 // Shape, Image
 
 impl ComponentBuilder for Image {
     fn build_children(&self, _ctx: &mut ComponentContext, _max_size: Vec2) -> Vec<Box<dyn Drawable>> {
-        vec![Box::new(CanvasItem::Image(self.0, self.1.clone()))]
+        vec![Box::new(CanvasItem::Image(self.0, self.1.clone().into_inner(), self.2))]
     }
 
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
@@ -162,49 +167,7 @@ impl ComponentBuilder for Image {
     fn on_move(&mut self, _ctx: &mut ComponentContext, _max_size: Vec2, _position: Vec2) {}
 }
 
-
-// #[derive(Clone)]
-// pub struct Handle{
-//     font: Option<Arc<FontKey>>,
-//     image: Option<Arc<ImageKey>>,
-// }
-
-// impl Handle {
-//     pub fn u(&self) -> u64 {
-//         **self.font.as_ref().unwrap_or_else(|| self.image.as_ref().unwrap())
-//     }
-
-//     fn new_font(key: FontKey) -> Self {
-//         Handle{font: Some(Arc::new(key)), image: None}
-//     }
-
-//     fn new_image(key: ImageKey) -> Self {
-//         Handle{font: None, image: Some(Arc::new(key))}
-//     }
-
-//     fn try_drop(self, ctx: &mut CanvasContext) -> Option<Self> {
-//         if let Some(font) = self.font {
-//             match Arc::try_unwrap(font) {
-//                 Ok(f) => {
-//                     ctx.atlas.remove_font(&f);
-//                     None
-//                 },
-//                 Err(e) => Some(Handle{font: Some(e), image: None})
-//             }
-//         } else if let Some(image) = self.image {
-//             match Arc::try_unwrap(image) {
-//                 Ok(i) => {
-//                     ctx.atlas.remove_image(&i);
-//                     None
-//                 },
-//                 Err(e) => Some(Handle{font: None, image: Some(e)})
-//             }
-//         } else {None}
-//     }
-// }
-
 pub struct ComponentContext<'a> {
-    // handles: &'a mut Vec<Handle>,
     assets: &'a mut Vec<Dir<'static>>,
     canvas: &'a mut CanvasContext
 }
@@ -218,7 +181,7 @@ impl<'a> ComponentContext<'a> {
         self.assets.push(dir);
     }
 
-    pub fn load_file(&self, file: &'static str) -> Option<Vec<u8>> {
+    pub fn load_file(&self, file: &str) -> Option<Vec<u8>> {
         self.assets.iter().find_map(|dir|
             dir.find(file).ok().and_then(|mut f|
                 f.next().and_then(|f|
@@ -227,28 +190,6 @@ impl<'a> ComponentContext<'a> {
             )
         )
     }
-
-    pub fn load_font(&mut self, font: &'static str) -> Option<Font> {
-        self.load_file(font).map(|font| self.add_font(font))
-    }
-
-    pub fn load_image(&mut self, image: &'static str) -> Option<CImage> {
-        self.load_file(image).map(|image| {
-            self.add_image(image::load_from_memory(&image).unwrap().to_rgba8())
-        })
-    }
-
-    pub fn add_image(&mut self, image: image::RgbaImage) -> CImage {
-        self.canvas.new_image(image)
-    }
-
-    pub fn add_font(&mut self, font: Vec<u8>) -> Font {
-        self.canvas.new_font(font)
-    }
-
-    pub fn measure_text(&mut self, text: &wgpu_canvas::Text) -> (u32, u32) {
-        text.size(&mut self.canvas.atlas)
-    }
 }
 
 pub trait ComponentAppTrait {
@@ -256,18 +197,9 @@ pub trait ComponentAppTrait {
 }
 
 pub struct ComponentApp<A: ComponentAppTrait> {
-    // handles: Option<Vec<Handle>>,
     assets: Vec<Dir<'static>>,
     app: Box<dyn ComponentBuilder>,
     _p: std::marker::PhantomData<A>
-}
-
-impl<A: ComponentAppTrait> ComponentApp<A> {
-    // fn trim(&mut self, ctx: &mut CanvasContext) {
-    //     self.handles = Some(self.handles.take().unwrap().into_iter().flat_map(|h| {
-    //         h.try_drop(ctx)
-    //     }).collect());
-    // }
 }
 
 impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
@@ -280,9 +212,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
     }
 
     async fn on_tick(&mut self, ctx: &mut CanvasContext) {
-        // self.trim(ctx);
-        let width = ctx.size.logical().0;
-        let height = ctx.size.logical().1;
+        let width = ctx.width();
+        let height = ctx.height();
         let mut ctx = ComponentContext::new(&mut self.assets, ctx);
         self.app.build(&mut ctx, Rect::new(0, 0, width, height))
             .draw(&mut ctx, Vec2::new(0, 0), Rect::new(0, 0, width, height))
@@ -290,8 +221,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
     }
 
     async fn on_click(&mut self, ctx: &mut CanvasContext) {
-        let width = ctx.size.logical().0;
-        let height = ctx.size.logical().1;
+        let width = ctx.width();
+        let height = ctx.height();
         let x = ctx.position.0;
         let y = ctx.position.1;
         let mut ctx = ComponentContext::new(&mut self.assets, ctx);
@@ -299,8 +230,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
     }
 
     async fn on_move(&mut self, ctx: &mut CanvasContext) {
-        let width = ctx.size.logical().0;
-        let height = ctx.size.logical().1;
+        let width = ctx.width();
+        let height = ctx.height();
         let x = ctx.position.0;
         let y = ctx.position.1;
         let mut ctx = ComponentContext::new(&mut self.assets, ctx);
