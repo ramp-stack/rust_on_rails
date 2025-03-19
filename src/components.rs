@@ -169,23 +169,24 @@ impl ComponentBuilder for Image {
 
 pub trait Plugin {
     fn name() -> &'static str where Self: Sized;
-
-    fn init(&mut self, ctx: &mut ComponentContext);
 }
 
 pub struct ComponentContext<'a> {
-    plugins: HashMap<&'static str, Box<dyn std::any::Any>>,
+    plugins: &'a mut HashMap<&'static str, Box<dyn std::any::Any>>,
     assets: &'a mut Vec<Dir<'static>>,
     canvas: &'a mut CanvasContext
 }
 
 impl<'a> ComponentContext<'a> {
-    pub fn new(assets: &'a mut Vec<Dir<'static>>, canvas: &'a mut CanvasContext) -> Self {
-        ComponentContext{plugins: HashMap::new(), assets, canvas}
+    pub fn new(
+        plugins: &'a mut HashMap<&'static str, Box<dyn std::any::Any>>,
+        assets: &'a mut Vec<Dir<'static>>,
+        canvas: &'a mut CanvasContext
+    ) -> Self {
+        ComponentContext{plugins, assets, canvas}
     }
 
-    pub fn configure_plugin<P: Plugin + 'static>(&mut self, mut plugin: P) {
-        plugin.init(self);
+    pub fn configure_plugin<P: Plugin + 'static>(&mut self, plugin: P) {
         self.plugins.insert(P::name(), Box::new(plugin));
     }
 
@@ -215,6 +216,7 @@ pub trait ComponentAppTrait {
 }
 
 pub struct ComponentApp<A: ComponentAppTrait> {
+    plugins: HashMap<&'static str, Box<dyn std::any::Any>>,
     assets: Vec<Dir<'static>>,
     app: Box<dyn ComponentBuilder>,
     _p: std::marker::PhantomData<A>
@@ -222,17 +224,17 @@ pub struct ComponentApp<A: ComponentAppTrait> {
 
 impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
     async fn new(ctx: &mut CanvasContext) -> Self {
-        // let mut handles = Some(Vec::new());
+        let mut plugins = HashMap::new();
         let mut assets = Vec::new();
-        let mut ctx = ComponentContext::new(&mut assets, ctx);
+        let mut ctx = ComponentContext::new(&mut plugins, &mut assets, ctx);
         let app = A::new(&mut ctx).await;
-        ComponentApp{assets, app, _p: std::marker::PhantomData::<A>}
+        ComponentApp{plugins, assets, app, _p: std::marker::PhantomData::<A>}
     }
 
     async fn on_tick(&mut self, ctx: &mut CanvasContext) {
         let width = ctx.width();
         let height = ctx.height();
-        let mut ctx = ComponentContext::new(&mut self.assets, ctx);
+        let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         self.app.build(&mut ctx, Rect::new(0, 0, width, height))
             .draw(&mut ctx, Vec2::new(0, 0), Rect::new(0, 0, width, height))
             .into_iter().for_each(|(i, a)| ctx.canvas.draw(i, a))
@@ -242,7 +244,7 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let width = ctx.width();
         let height = ctx.height();
         let (x, y) = ctx.mouse();
-        let mut ctx = ComponentContext::new(&mut self.assets, ctx);
+        let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         self.app.on_click(&mut ctx, Vec2::new(width, height), Vec2::new(x, y));
     }
 
@@ -250,7 +252,7 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let width = ctx.width();
         let height = ctx.height();
         let (x, y) = ctx.mouse();
-        let mut ctx = ComponentContext::new(&mut self.assets, ctx);
+        let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         self.app.on_move(&mut ctx, Vec2::new(width, height), Vec2::new(x, y));
     }
 
