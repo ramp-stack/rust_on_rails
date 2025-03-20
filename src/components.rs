@@ -121,8 +121,8 @@ pub trait ComponentBuilder {
         Component(self.build_children(ctx, window.size()), window)
     }
 
-    fn on_click(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2);
-    fn on_move(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2);
+    fn on_click(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2) {}
+    fn on_move(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2) {}
 }
 
 impl<T: ComponentBuilder> Drawable for Box<T> {
