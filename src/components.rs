@@ -115,6 +115,34 @@ macro_rules! create_component_entry_points {
     };
 }
 
+#[derive(Clone, Copy)]
+pub enum Align {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    Left,
+    Center,
+    Right,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
+impl Align {
+    pub fn align(&self, max_size: (u32, u32), min_size: (u32, u32)) -> (u32, u32) {
+        match self {
+            Align::TopLeft => (0, 0),
+            Align::TopCenter => ((max_size.0 - min_size.0) / 2, 0),
+            Align::TopRight => (max_size.0 - min_size.0, 0),
+            Align::Left => (0, (max_size.1 - min_size.1) / 2),
+            Align::Center => ((max_size.0 - min_size.0) / 2, (max_size.1 - min_size.1) / 2),
+            Align::Right => (max_size.0 - min_size.0, (max_size.1 - min_size.1) / 2),
+            Align::BottomLeft => (0, max_size.1 - min_size.1),
+            Align::BottomCenter => ((max_size.0 - min_size.0) / 2, max_size.1 - min_size.1),
+            Align::BottomRight => (max_size.0 - min_size.0, max_size.1 - min_size.1)
+        }
+    }
+}
 
 pub trait Component: DynClone {
     fn build(&self, ctx: &mut ComponentContext, max_size: (u32, u32)) -> Vec<((u32, u32), Box<dyn Component>)>;
@@ -142,7 +170,16 @@ pub trait Component: DynClone {
             c.draw(ctx, offset, bound);
         }
     }
+
+    fn stack(self) -> ((u32, u32), Box<dyn Component>) where Self: Sized + 'static {
+        ((0, 0), Box::new(self))
+    }
+
+    fn align(self, ctx: &mut ComponentContext, max_size: (u32, u32), align: Align) -> ((u32, u32), Box<dyn Component>) where Self: Sized + 'static {
+        (align.align(max_size, self.size(ctx, max_size)), Box::new(self))
+    }
 }
+
 clone_trait_object!(Component);
 
 // Text, Color, Opacity, Optional Width, text size, line height, font
@@ -207,8 +244,32 @@ impl<C: Component + Clone + 'static> Component for Option<C> {
     }
 }
 
+impl Component for Vec<Box<dyn Component>> {
+    fn build(&self, _ctx: &mut ComponentContext, _max_size: (u32, u32)) -> Vec<((u32, u32), Box<dyn Component>)> {
+        self.clone().into_iter().map(|c| ((0,0), c)).collect()
+    }
+}
+
+impl Component for Vec<((u32, u32), Box<dyn Component>)> {
+    fn build(&self, _ctx: &mut ComponentContext, _max_size: (u32, u32)) -> Vec<((u32, u32), Box<dyn Component>)> {
+        self.clone()
+    }
+}
+
 impl<C: Component + 'static> From<C> for Box<dyn Component> {
     fn from(component: C) -> Box<dyn Component> {
         Box::new(component)
     }
 }
+
+// impl<C: Component + 'static> From<C> for ((u32, u32), Box<dyn Component>) {
+//     fn from(component: C) -> ((u32, u32), Box<dyn Component>) {
+//         ((0, 0), Box::new(component))
+//     }
+// }
+
+// impl<C: Component + Clone + 'static> Into<((u32, u32), Box<dyn Component>)> for C {
+//     fn into(component: C) -> ((u32, u32), Box<dyn Component>) {
+//         ((0, 0), Box::new(component))
+//     }
+// }
