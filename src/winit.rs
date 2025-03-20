@@ -98,6 +98,10 @@ impl<A: WinitAppTrait + 'static> WinitApp<A> {
 }
 
 impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) { 
+        self.window().request_redraw();
+     }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.window = Some(Arc::new(event_loop.create_window(Window::default_attributes()).unwrap()));
         let window = self.window().clone();
