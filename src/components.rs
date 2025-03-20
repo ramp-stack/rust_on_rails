@@ -125,6 +125,19 @@ pub trait ComponentBuilder {
     fn on_move(&mut self, ctx: &mut ComponentContext, max_size: Vec2, position: Vec2);
 }
 
+impl<T: ComponentBuilder> Drawable for Box<T> {
+    fn draw(&self, ctx: &mut ComponentContext, offset: Vec2, bound: Rect) -> Vec<(Area, CanvasItem)> {
+        self.build(ctx, bound).draw(ctx, offset, bound)
+    }
+
+    //Size of an element is Max Size+Offset of its children limited to the Max size
+    fn size(&self, ctx: &mut ComponentContext) -> Vec2 {
+        self.build(ctx, Rect::new(0, 0, 0, 0)).size(ctx)
+    }
+
+    fn offset(&self) -> Vec2 {Vec2::new(0, 0)}
+}
+
 #[derive(Clone)]
 pub struct Text(pub &'static str, pub Color, pub Option<u32>, pub u32, pub u32, pub Font);
 // Text, Color, Opacity, Optional Width, text size, line height, font
