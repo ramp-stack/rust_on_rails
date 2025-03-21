@@ -98,7 +98,7 @@ impl<A: WinitAppTrait + 'static> WinitApp<A> {
 }
 
 impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) { 
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
         self.window().request_redraw();
      }
 
