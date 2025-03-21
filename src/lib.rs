@@ -27,7 +27,8 @@ pub use components::ComponentApp;
 pub mod prelude {
     pub use crate::*;
 //  pub use components::{resources, Color, Image, Shape, ShapeType, Text, ComponentBuilder, Drawable, Vec2, Rect, Plugin};
-    pub use components::{resources, Component, Plugin, Color, Shape, ShapeType, Image, Text, Align};
+    pub use components::{resources, Component, Plugin, Color, Shape, ShapeType, Image, Text, Offset, Size, Container, ComponentTag};
+
     pub use crate::components::ComponentAppTrait as App;
     pub use crate::components::ComponentContext as Context;
     pub use crate::create_component_entry_points as create_entry_points;
