@@ -35,7 +35,7 @@ pub struct Color(pub u8, pub u8, pub u8, pub u8);
 impl Color {
     pub fn from_hex(color: &'static str, alpha: u8) -> Self {
         let ce = "Color was not a Hex Value";
-        let c = hex::decode(color).expect(ce);
+        let c = hex::decode(color.strip_prefix('#').unwrap_or(color)).expect(ce);
         Color(c[0], c[1], c[2], alpha)
     }
 
@@ -105,7 +105,7 @@ pub struct Text {
     pub size: u32,
     pub line_height: u32,
     pub font: Font,
-
+    pub emoji: Font
 }
 
 impl Text {
@@ -116,8 +116,9 @@ impl Text {
         size: u32,
         line_height: u32,
         font: Font,
+        emoji: Font
     ) -> Self {
-        Text{text, color, width, size, line_height, font}
+        Text{text, color, width, size, line_height, font, emoji}
     }
 
     pub(crate) fn into_inner(self, size: &Size) -> wgpu_canvas::Text {
@@ -127,7 +128,8 @@ impl Text {
             self.width.map(|w| size.scale_physical(w)),
             size.scale_physical(self.size),
             size.scale_physical(self.line_height),
-            self.font.into_inner()
+            self.font.into_inner(),
+            self.emoji.into_inner()
         )
     }
 

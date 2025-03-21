@@ -184,10 +184,10 @@ clone_trait_object!(Component);
 
 // Text, Color, Opacity, Optional Width, text size, line height, font
 #[derive(Clone)]
-pub struct Text(pub &'static str, pub Color, pub u32, pub u32, pub Font);
+pub struct Text(pub &'static str, pub Color, pub u32, pub u32, pub Font, pub Font);
 impl Text {
     fn into_inner(self, max_width: u32) -> canvas::Text {
-        canvas::Text::new(self.0, self.1, Some(max_width), self.2, self.3, self.4.clone().into_inner())
+        canvas::Text::new(self.0, self.1, Some(max_width), self.2, self.3, self.4.clone().into_inner(), self.5.clone().into_inner())
     }
 }
 
