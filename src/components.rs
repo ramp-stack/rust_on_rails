@@ -112,7 +112,7 @@ macro_rules! create_component_entry_points {
     };
 }
 
-pub trait Drawable: std::fmt::Debug {
+pub trait Drawable {
     fn size(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32);
     fn draw(&mut self, ctx: &mut ComponentContext, position: Rect, bound: Rect);
 
@@ -175,7 +175,7 @@ pub use canvas::Shape as ShapeType;
 pub struct Shape(pub ShapeType, pub Color);
 
 impl Drawable for Shape {
-    fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {max_size}
+    fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {self.0.size()}
 
     fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
         ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Shape(self.0, self.1))
@@ -186,7 +186,7 @@ impl Drawable for Shape {
 pub struct Image(pub ShapeType, pub resources::Image, pub Option<Color>);
 
 impl Drawable for Image {
-    fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {max_size}
+    fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {self.0.size()}
 
     fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
         ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Image(self.0, self.1.clone().into_inner(), self.2))
@@ -195,7 +195,7 @@ impl Drawable for Image {
 
 pub type SizeFn<'a> = Box<dyn FnMut(&mut ComponentContext, (u32, u32)) -> (u32, u32) + 'a>;
 
-pub trait Component: std::fmt::Debug {
+pub trait Component {
     fn build(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32)) -> Container;
     fn size(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {
         self.build(ctx, max_size).size(ctx, max_size)
@@ -223,7 +223,7 @@ impl<C: Component + ?Sized + 'static> Drawable for C {
     }
 }
 
-pub trait Layout: std::fmt::Debug {
+pub trait Layout {
     fn layout(&self, ctx: &mut ComponentContext, max_size: (u32, u32), items: Vec<SizeFn>) -> Vec<((i32, i32), (u32, u32))>;
     fn size(&self, ctx: &mut ComponentContext, max_size: (u32, u32), items: Vec<SizeFn>) -> (u32, u32) {
         self.layout(ctx, max_size, items).into_iter().fold((0, 0), |old_size, (offset, size)| {
@@ -233,7 +233,6 @@ pub trait Layout: std::fmt::Debug {
     }
 }
 
-#[derive(Debug)]
 pub struct DefaultLayout;
 impl Layout for DefaultLayout {
     fn layout(&self, ctx: &mut ComponentContext, max_size: (u32, u32), items: Vec<SizeFn>) -> Vec<((i32, i32), (u32, u32))> {
@@ -241,7 +240,6 @@ impl Layout for DefaultLayout {
     }
 }
 
-#[derive(Debug)]
 pub struct Container<'a>(Box<dyn Layout>, Vec<&'a mut dyn Drawable>);
 
 impl<'a> Container<'a> {
@@ -303,6 +301,6 @@ impl Drawable for Container<'_> {
 #[macro_export]
 macro_rules! container {
     [$($child:expr),* $(,)?] => {{
-        Container::new(DefaultLayout, vec![ $(Box::new($child as &mut dyn Drawable)),* ])
+        Container::new(DefaultLayout, vec![ $($child as &mut dyn Drawable),* ])
     }};
 }
