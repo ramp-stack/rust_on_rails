@@ -107,38 +107,35 @@ impl Shape {
 
 #[derive(Debug, Clone)]
 pub struct Text {
-    pub text: &'static str,
+    pub text: String,
     pub color: Color,
     pub width: Option<u32>,
     pub size: u32,
     pub line_height: u32,
-    pub font: Font,
-    pub emoji: Font
+    pub font: Font
 }
 
 impl Text {
     pub fn new(
-        text: &'static str,
+        text: &str,
         color: Color,
         width: Option<u32>,
         size: u32,
         line_height: u32,
-        font: Font,
-        emoji: Font
+        font: Font
     ) -> Self {
-        Text{text, color, width, size, line_height, font, emoji}
+        Text{text: text.to_string(), color, width, size, line_height, font}
     }
 
     pub(crate) fn into_inner(self, size: &Size) -> wgpu_canvas::Text {
-        wgpu_canvas::Text::new(
-            self.text,
-            self.color.into_inner(),
-            self.width.map(|w| size.scale_physical(w)),
-            size.scale_physical(self.size),
-            size.scale_physical(self.line_height),
-            self.font.into_inner(),
-            self.emoji.into_inner()
-        )
+        wgpu_canvas::Text{
+            text: self.text,
+            color: self.color.into_inner(),
+            width: self.width.map(|w| size.scale_physical(w)),
+            size: size.scale_physical(self.size),
+            line_height: size.scale_physical(self.line_height),
+            font: self.font.into_inner()
+        }
     }
 
     pub fn size(&self, ctx: &mut CanvasContext) -> (u32, u32) {
