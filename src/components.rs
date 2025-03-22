@@ -152,22 +152,24 @@ impl Drawable for Text {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum ShapeType {//Stroke, (Corner Radius)
-    Ellipse(u32),
-    Rectangle(u32),
-    RoundedRectangle(u32, u32)
-}
+pub use canvas::Shape as ShapeType;
 
-impl ShapeType {
-    fn into_inner(self, size: (u32, u32)) -> canvas::Shape {
-        match self {
-            ShapeType::Ellipse(stroke) => canvas::Shape::Ellipse(stroke, size),
-            ShapeType::Rectangle(stroke) => canvas::Shape::Rectangle(stroke, size),
-            ShapeType::RoundedRectangle(stroke, cr) => canvas::Shape::RoundedRectangle(stroke, size, cr),
-        }
-    }
-}
+//  #[derive(Clone, Copy, Debug)]
+//  pub enum ShapeType {
+//      Ellipse(u32, (u32, u32)),
+//      Rectangle(u32, (u32, u32)),
+//      RoundedRectangle(u32, (u32, u32))
+//  }
+
+//  impl ShapeType {
+//      fn into_inner(self, size: (u32, u32)) -> canvas::Shape {
+//          match self {
+//              ShapeType::Ellipse(stroke) => canvas::Shape::Ellipse(stroke, size),
+//              ShapeType::Rectangle(stroke) => canvas::Shape::Rectangle(stroke, size),
+//              ShapeType::RoundedRectangle(stroke, cr) => canvas::Shape::RoundedRectangle(stroke, size, cr),
+//          }
+//      }
+//  }
 
 #[derive(Clone, Debug)]
 pub struct Shape(pub ShapeType, pub Color);
@@ -176,7 +178,7 @@ impl Drawable for Shape {
     fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {max_size}
 
     fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
-        ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Shape(self.0.into_inner((pos.2, pos.3)), self.1))
+        ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Shape(self.0, self.1))
     }
 }
 
@@ -187,7 +189,7 @@ impl Drawable for Image {
     fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {max_size}
 
     fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
-        ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Image(self.0.into_inner((pos.2, pos.3)), self.1.clone().into_inner(), self.2))
+        ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Image(self.0, self.1.clone().into_inner(), self.2))
     }
 }
 
@@ -240,15 +242,15 @@ impl Layout for DefaultLayout {
 }
 
 #[derive(Debug)]
-pub struct Container<'a>(Box<dyn Layout>, Vec<Box<&'a mut dyn Drawable>>);
+pub struct Container<'a>(Box<dyn Layout>, Vec<&'a mut dyn Drawable>);
 
 impl<'a> Container<'a> {
 
-    pub fn new(layout: impl Layout + 'static, items: Vec<Box<&'a mut dyn Drawable>>) -> Self {
+    pub fn new(layout: impl Layout + 'static, items: Vec<&'a mut dyn Drawable>) -> Self {
         Container(Box::new(layout), items.into_iter().rev().collect())
     }
 
-    pub fn get_child(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) -> Option<(&mut Box<&'a mut dyn Drawable>, (u32, u32))> {
+    pub fn get_child(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) -> Option<(&mut &'a mut dyn Drawable, (u32, u32))> {
         let items = self.1.iter_mut().map(|c| Box::new(|ctx: &mut ComponentContext, max: (u32, u32)| c.size(ctx, max)) as SizeFn).collect();
         self.0.layout(ctx, max_size, items).into_iter().zip(self.1.iter_mut()).find_map(|((offset, size), child)| {
             if (position.0 as i32) > offset.0 && (position.0 as i32) < offset.0+size.0 as i32 &&
