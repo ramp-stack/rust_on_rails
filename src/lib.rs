@@ -34,4 +34,6 @@ pub mod prelude {
     pub use crate::create_component_entry_points as create_entry_points;
     pub use include_dir;
     pub use include_dir::include_dir as include_assets;
+
+    pub use proc::Component;
 }

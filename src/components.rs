@@ -154,24 +154,7 @@ impl Drawable for Text {
 
 pub use canvas::Shape as ShapeType;
 
-//  #[derive(Clone, Copy, Debug)]
-//  pub enum ShapeType {
-//      Ellipse(u32, (u32, u32)),
-//      Rectangle(u32, (u32, u32)),
-//      RoundedRectangle(u32, (u32, u32))
-//  }
-
-//  impl ShapeType {
-//      fn into_inner(self, size: (u32, u32)) -> canvas::Shape {
-//          match self {
-//              ShapeType::Ellipse(stroke) => canvas::Shape::Ellipse(stroke, size),
-//              ShapeType::Rectangle(stroke) => canvas::Shape::Rectangle(stroke, size),
-//              ShapeType::RoundedRectangle(stroke, cr) => canvas::Shape::RoundedRectangle(stroke, size, cr),
-//          }
-//      }
-//  }
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Shape(pub ShapeType, pub Color);
 
 impl Drawable for Shape {
