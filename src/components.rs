@@ -124,24 +124,24 @@ pub trait Drawable {
 
 // Text, Color, Opacity, text size, line height, font
 #[derive(Clone, Debug)]
-pub struct Text(pub String, pub Color, pub u32, pub u32, pub Font);
+pub struct Text(pub String, pub Color, pub Option<u32>, pub u32, pub u32, pub Font);
 impl Text {
-    pub fn new(text: &str, color: Color, size: u32, line_height: u32, font: Font) -> Self {
-        Text(text.to_string(), color, size, line_height, font)
+    pub fn new(text: &str, color: Color, width: Option<u32>, size: u32, line_height: u32, font: Font) -> Self {
+        Text(text.to_string(), color, width, size, line_height, font)
     }
 
-    fn into_inner(self, max_width: u32) -> canvas::Text {
-        canvas::Text{text: self.0, color: self.1, width: Some(max_width), size: self.2, line_height: self.3, font: self.4.clone().into_inner()}
+    fn into_inner(self) -> canvas::Text {
+        canvas::Text{text: self.0, color: self.1, width: self.2, size: self.3, line_height: self.4, font: self.5.clone().into_inner()}
     }
 }
 
 impl Drawable for Text {
     fn size(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {
-        self.clone().into_inner(max_size.0).size(ctx.canvas)
+        self.clone().into_inner().size(ctx.canvas)
     }
 
     fn draw(&mut self, ctx: &mut ComponentContext, position: Rect, bound: Rect) {
-        ctx.canvas.draw(Area((position.0, position.1), Some(bound)), CanvasItem::Text(self.clone().into_inner(position.2)))
+        ctx.canvas.draw(Area((position.0, position.1), Some(bound)), CanvasItem::Text(self.clone().into_inner()))
     }
 
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), position: (u32, u32)) {
@@ -158,7 +158,7 @@ pub use canvas::Shape as ShapeType;
 pub struct Shape(pub ShapeType, pub Color);
 
 impl Drawable for Shape {
-    fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {self.0.size()}
+    fn size(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32)) -> (u32, u32) {self.0.size()}
 
     fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
         ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Shape(self.0, self.1))
@@ -169,7 +169,7 @@ impl Drawable for Shape {
 pub struct Image(pub ShapeType, pub resources::Image, pub Option<Color>);
 
 impl Drawable for Image {
-    fn size(&mut self, _ctx: &mut ComponentContext, max_size: (u32, u32)) -> (u32, u32) {self.0.size()}
+    fn size(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32)) -> (u32, u32) {self.0.size()}
 
     fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
         ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Image(self.0, self.1.clone().into_inner(), self.2))
@@ -184,8 +184,12 @@ pub trait Component {
         self.build(ctx, max_size).size(ctx, max_size)
     }
 
-    fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: (u32, u32)) {}
-    fn on_move(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: (u32, u32)) {}
+    fn on_click(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) {
+        self.build(ctx, max_size).on_click(ctx, max_size, position)
+    }
+    fn on_move(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) {
+        self.build(ctx, max_size).on_move(ctx, max_size, position)
+    }
 }
 //clone_trait_object!(Component);
 
@@ -199,10 +203,10 @@ impl<C: Component + ?Sized + 'static> Drawable for C {
     }
 
     fn on_click(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) {
-        self.build(ctx, max_size).on_click(ctx, max_size, position)
+        Component::on_click(self, ctx, max_size, position)
     }
     fn on_move(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) {
-        self.build(ctx, max_size).on_move(ctx, max_size, position)
+        Component::on_move(self, ctx, max_size, position)
     }
 }
 
@@ -231,12 +235,12 @@ impl<'a> Container<'a> {
         Container(Box::new(layout), items.into_iter().rev().collect())
     }
 
-    pub fn get_child(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) -> Option<(&mut &'a mut dyn Drawable, (u32, u32))> {
+    pub fn get_child(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) -> Option<(&mut &'a mut dyn Drawable, (u32, u32), (u32, u32))> {
         let items = self.1.iter_mut().map(|c| Box::new(|ctx: &mut ComponentContext, max: (u32, u32)| c.size(ctx, max)) as SizeFn).collect();
         self.0.layout(ctx, max_size, items).into_iter().zip(self.1.iter_mut()).find_map(|((offset, size), child)| {
             if (position.0 as i32) > offset.0 && (position.0 as i32) < offset.0+size.0 as i32 &&
                (position.1 as i32) > offset.1 && (position.1 as i32) < offset.1+size.1 as i32 {
-                Some((child, (position.0-offset.0 as u32, position.1-offset.1 as u32)))
+                Some((child, size, (position.0-offset.0 as u32, position.1-offset.1 as u32)))
             } else {None}
         })
     }
@@ -269,14 +273,14 @@ impl Drawable for Container<'_> {
     }
 
     fn on_click(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) {
-        if let Some((c, p)) = self.get_child(ctx, max_size, position) {
-            c.on_click(ctx, max_size, p);
+        if let Some((c, size, p)) = self.get_child(ctx, max_size, position) {
+            c.on_click(ctx, size, p);
         }
     }
 
     fn on_move(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: (u32, u32)) {
-        if let Some((c, p)) = self.get_child(ctx, max_size, position) {
-            c.on_move(ctx, max_size, p);
+        if let Some((c, size, p)) = self.get_child(ctx, max_size, position) {
+            c.on_move(ctx, size, p);
         }
     }
 }
