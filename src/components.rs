@@ -113,7 +113,7 @@ macro_rules! create_component_entry_points {
     };
 }
 
-pub trait Drawable {
+pub trait Drawable: std::fmt::Debug {
     fn size(&self, ctx: &mut ComponentContext) -> (Option<u32>, Option<u32>);
     fn draw(&self, ctx: &mut ComponentContext, position: Rect, bound: Rect);
 
@@ -186,9 +186,7 @@ impl Drawable for Image {
     }
 }
 
-pub type SizeFn<'a> = Box<dyn FnMut(&mut ComponentContext, (u32, u32)) -> (u32, u32) + 'a>;
-
-pub trait Component {
+pub trait Component: std::fmt::Debug {
     fn children_mut(&mut self) -> Vec<&mut dyn Drawable>;
     fn children(&self) -> Vec<&dyn Drawable>;
     fn layout(&self) -> &dyn Layout;
@@ -250,16 +248,16 @@ impl<C: _Component + ?Sized + 'static> Drawable for C {
         self.children_mut().into_iter().for_each(|c| c.on_tick(ctx));
     }
     fn on_click(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>) {
-        let position = Component::on_click(self, ctx, position).then(|| position).flatten();
+        let position = Component::on_click(self, ctx, position).then_some(position).flatten();
         self.pass_event(ctx, max_size, position, true)
     }
     fn on_move(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>) {
-        let position = Component::on_move(self, ctx, position).then(|| position).flatten();
+        let position = Component::on_move(self, ctx, position).then_some(position).flatten();
         self.pass_event(ctx, max_size, position, false)
     }
 }
 
-pub trait Layout {
+pub trait Layout: std::fmt::Debug {
     fn build(&self, ctx: &mut ComponentContext, max_size: (u32, u32), items: Vec<(Option<u32>, Option<u32>)>) -> Vec<((i32, i32), (u32, u32))>;
     fn size(&self, ctx: &mut ComponentContext, items: Vec<(Option<u32>, Option<u32>)>) -> (Option<u32>, Option<u32>);
 }
@@ -280,94 +278,3 @@ impl Layout for DefaultLayout {
         })
     }
 }
-
-
-//  //  pub struct Container<'a>(Box<dyn Layout>, Vec<&'a mut dyn Drawable>);
-//  //  impl<'a> Container<'a> {
-//  //      pub fn new(layout: impl Layout + 'static, items: Vec<&'a mut dyn Drawable>) -> Self {
-//  //          Container(Box::new(layout), items)
-//  //      }
-//  //  }
-//  //  #[macro_export]
-//  //  macro_rules! container {
-//  //      [$($child:expr),* $(,)?] => {{
-//  //          Container::new(DefaultLayout, vec![ $($child as &mut dyn Drawable),* ])
-//  //      }};
-//  //  }
-
-//  pub struct BuiltComponent<'a>(Vec<((i32, i32), (u32, u32), &'a mut dyn Drawable)>);
-
-//  impl<'a> BuiltComponent<'a> {
-//      fn new(ctx: &mut ComponentContext, max_size: (u32, u32)) -> Self {
-//          let size_fns = container.1.iter_mut().map(|c| Box::new(|ctx: &mut ComponentContext, max: (u32, u32)| c.size(ctx, max)) as SizeFn).collect();
-//          BuiltComponent(container.0.build(ctx, max_size, size_fns).into_iter().zip(container.1).map(|((offset, size), child)| (offset, size, child)).collect())
-//      }
-
-//      fn pass_event(&mut self, ctx: &mut ComponentContext, position: Option<(u32, u32)>, on_click: bool) {
-//          let mut clicked = false;
-//          self.0.iter_mut().rev().for_each(|(offset, size, child)| {//Reverse to click on the top most element
-//              let position = position.and_then(|position| {
-//                  if !clicked && (position.0 as i32) > offset.0 && (position.0 as i32) < offset.0+size.0 as i32 && (position.1 as i32) > offset.1 && (position.1 as i32) < offset.1+size.1 as i32 {
-//                      clicked = true;
-//                      Some((position.0-offset.0 as u32, position.1-offset.1 as u32))
-//                  } else {None}
-//              });
-//              if on_click { child.on_click(ctx, *size, position); } else { child.on_move(ctx, *size, position); }
-//          })
-//      }
-
-//      fn size(&self, ctx: &mut ComponentContext) -> (u32, u32) {
-//          self.0.iter().fold((0, 0), |old_size, (offset, size, _)| {
-//              let size = ((offset.0 + size.0 as i32).max(0) as u32, (offset.1 + size.1 as i32).max(0) as u32);
-//              (old_size.0.max(size.0), old_size.1.max(size.1))
-//          })
-//      }
-
-//      fn draw(&mut self, ctx: &mut ComponentContext, position: Rect, bound: Rect) {
-//          self.0.iter_mut().for_each(|(offset, size, child)| {
-//              let position = (
-//                  position.0+offset.0, position.1+offset.1,//Screen Offset Total
-//                  size.0, size.1//Size of underlaying component
-//              );
-
-//              let bound = (
-//                  bound.0.max(bound.0+offset.0), bound.1.max(bound.1+offset.1),//New bound offset
-//                  bound.2.min((offset.0 + size.0 as i32).max(0) as u32), bound.3.min((offset.1 + size.1 as i32).max(0) as u32)//New bound size
-//              );
-
-//              if bound.2 != 0 && bound.3 != 0 {
-//                  child.draw(ctx, position, bound);
-//              }
-//          })
-//      }
-
-//      fn on_click(&mut self, ctx: &mut ComponentContext, position: Option<(u32, u32)>) {
-//          self.pass_event(ctx, position, true);
-//      }
-
-//      fn on_move(&mut self, ctx: &mut ComponentContext, position: Option<(u32, u32)>) {
-//          self.pass_event(ctx, position, false);
-//      }
-//  }
-
-//  #[derive(Clone, Copy, Default, Debug)]
-//  pub enum Size {
-//      #[default]
-//      Fit,
-//      Expand,
-//      Fill,
-//      Static(u32, u32),
-//      Custom(fn((u32, u32), (u32, u32)) -> (u32, u32))
-//  }
-
-//  impl Size {
-//      pub fn get(&self, max_size: (u32, u32)) -> (u32, u32) {
-//          match self {
-//              Self::Fit => ,
-//              Self::Expand => c_size,
-//              Self::Fill => max_size,
-//              Self::Static(x, y) => (*x, *y),
-//              Self::Custom(func) => func(max_size, c_size)
-//          }
-//      }
-//  }
