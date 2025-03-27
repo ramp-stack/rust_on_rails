@@ -20,14 +20,16 @@ pub mod prelude {
     pub use crate::create_canvas_entry_points as create_entry_points;
 }
 
+#[cfg(feature = "components")]
 mod components;
+#[cfg(feature = "components")]
 pub use components::ComponentApp;
 
 #[cfg(feature = "components")]
 pub mod prelude {
     pub use crate::*;
 //  pub use components::{resources, Color, Image, Shape, ShapeType, Text, ComponentBuilder, Drawable, Vec2, Rect, Plugin};
-    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, DefaultLayout, ComponentRef, BoxComponent};
+    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, DefaultLayout, Drawable, Events, SizeInfo, MinSize, MaxSize};
 
     pub use crate::components::ComponentAppTrait as App;
     pub use crate::components::ComponentContext as Context;
@@ -35,5 +37,5 @@ pub mod prelude {
     pub use include_dir;
     pub use include_dir::include_dir as include_assets;
 
-    pub use proc::Component;
+    //pub use proc::Component;
 }

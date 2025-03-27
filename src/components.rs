@@ -4,16 +4,19 @@ use crate::canvas;
 use include_dir::{DirEntry, Dir};
 
 use std::collections::HashMap;
+use std::fmt::Debug;
+
+mod sizing;
+pub use sizing::{MinSize, MaxSize, SizeInfo};
 
 pub mod resources;
 use resources::Font;
 
 pub use canvas::Color;
 
-pub type BoxComponent = Box<dyn Drawable>;
-pub type ComponentRef<'a> = dyn Drawable + 'a;
+type Rect = (i32, i32, u32, u32);
 
-pub type Rect = (i32, i32, u32, u32);
+//None -> Some(0) -> Some(u32::Max)
 
 pub trait Plugin {
     fn name() -> &'static str where Self: Sized;
@@ -84,7 +87,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let height = ctx.height();
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         self.app.on_tick(&mut ctx);
-        self.app.draw(&mut ctx, (0, 0, width, height), (0, 0, width, height));
+        let size = self.app.size(&mut ctx).get((width, height));
+        self.app.draw(&mut ctx, (0, 0, size.0, size.1), (0, 0, width, height));
     }
 
     async fn on_click(&mut self, ctx: &mut CanvasContext) {
@@ -92,7 +96,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let height = ctx.height();
         let (x, y) = ctx.mouse();
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
-        self.app.on_click(&mut ctx, (width, height), Some((x, y)));
+        let size = self.app.size(&mut ctx).get((width, height));
+        self.app.on_click(&mut ctx, size, Some((x, y)));
     }
 
     async fn on_move(&mut self, ctx: &mut CanvasContext) {
@@ -100,7 +105,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let height = ctx.height();
         let (x, y) = ctx.mouse();
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
-        self.app.on_move(&mut ctx, (width, height), Some((x, y)));
+        let size = self.app.size(&mut ctx).get((width, height));
+        self.app.on_move(&mut ctx, size, Some((x, y)));
     }
 
     async fn on_press(&mut self, _ctx: &mut CanvasContext, _t: String) {}
@@ -113,10 +119,10 @@ macro_rules! create_component_entry_points {
     };
 }
 
-pub trait Drawable: std::fmt::Debug {
-    fn size(&self, ctx: &mut ComponentContext) -> (Option<u32>, Option<u32>);
-    fn draw(&self, ctx: &mut ComponentContext, position: Rect, bound: Rect);
+pub trait Drawable: Debug {
+    fn size(&self, ctx: &mut ComponentContext) -> SizeInfo;
 
+    fn draw(&mut self, _ctx: &mut ComponentContext, position: Rect, bound: Rect);
     fn on_tick(&mut self, _ctx: &mut ComponentContext) {}
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: Option<(u32, u32)>) {}
     fn on_move(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: Option<(u32, u32)>) {}
@@ -137,12 +143,11 @@ impl Text {
 }
 
 impl Drawable for Text {
-    fn size(&self, ctx: &mut ComponentContext) -> (Option<u32>, Option<u32>) {
-        let size = self.clone().into_inner().size(ctx.canvas);
-        (Some(size.0), Some(size.1))
+    fn size(&self, ctx: &mut ComponentContext) -> SizeInfo {
+        SizeInfo::fixed(self.clone().into_inner().size(ctx.canvas))
     }
 
-    fn draw(&self, ctx: &mut ComponentContext, position: Rect, bound: Rect) {
+    fn draw(&mut self, ctx: &mut ComponentContext, position: Rect, bound: Rect) {
         ctx.canvas.draw(Area((position.0, position.1), Some(bound)), CanvasItem::Text(self.clone().into_inner()))
     }
 
@@ -162,12 +167,9 @@ pub use canvas::Shape as ShapeType;
 pub struct Shape(pub ShapeType, pub Color);
 
 impl Drawable for Shape {
-    fn size(&self, _ctx: &mut ComponentContext) -> (Option<u32>, Option<u32>) {
-        let size = self.0.size();
-        (Some(size.0), Some(size.1))
-    }
+    fn size(&self, _ctx: &mut ComponentContext) -> SizeInfo {SizeInfo::fixed(self.0.size())}
 
-    fn draw(&self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
+    fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
         ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Shape(self.0, self.1))
     }
 }
@@ -176,35 +178,35 @@ impl Drawable for Shape {
 pub struct Image(pub ShapeType, pub resources::Image, pub Option<Color>);
 
 impl Drawable for Image {
-    fn size(&self, _ctx: &mut ComponentContext) -> (Option<u32>, Option<u32>) {
-        let size = self.0.size();
-        (Some(size.0), Some(size.1))
-    }
+    fn size(&self, _ctx: &mut ComponentContext) -> SizeInfo {SizeInfo::fixed(self.0.size())}
 
-    fn draw(&self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
+    fn draw(&mut self, ctx: &mut ComponentContext, pos: Rect, bound: Rect) {
         ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Image(self.0, self.1.clone().into_inner(), self.2))
     }
 }
 
-pub trait Component: std::fmt::Debug {
-    fn children_mut(&mut self) -> Vec<&mut dyn Drawable>;
-    fn children(&self) -> Vec<&dyn Drawable>;
-    fn layout(&self) -> &dyn Layout;
-
-    fn size(&self, ctx: &mut ComponentContext) -> (Option<u32>, Option<u32>) {
-        let sizes = self.children().into_iter().map(|i| i.size(ctx)).collect();
-        self.layout().size(ctx, sizes)
-    }
-
+pub trait Events: Debug {
+    fn on_resize(&mut self, _ctx: &mut ComponentContext, _size: (u32, u32)) {}
     fn on_tick(&mut self, _ctx: &mut ComponentContext) {}
     fn on_click(&mut self, _ctx: &mut ComponentContext, _position: Option<(u32, u32)>) -> bool {true}
     fn on_move(&mut self, _ctx: &mut ComponentContext, _position: Option<(u32, u32)>) -> bool {true}
+}
+
+pub trait Component: Events + Debug {
+    fn children_mut(&mut self) -> Vec<&mut dyn Drawable>;
+    fn children(&self) -> Vec<&dyn Drawable>;
+    fn layout(&self) -> &dyn Layout;
 }
 
 trait _Component: Component {
     fn build(&self, ctx: &mut ComponentContext, max_size: (u32, u32)) -> Vec<((i32, i32), (u32, u32))> {
         let sizes = self.children().into_iter().map(|i| i.size(ctx)).collect();
         self.layout().build(ctx, max_size, sizes)
+    }
+
+    fn size(&self, ctx: &mut ComponentContext) -> SizeInfo {
+        let sizes = self.children().into_iter().map(|i| i.size(ctx)).collect();
+        self.layout().size(ctx, sizes)
     }
 
     fn pass_event(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>, on_click: bool) {
@@ -223,9 +225,10 @@ trait _Component: Component {
 impl<C: Component + ?Sized> _Component for C {}
 
 impl<C: _Component + ?Sized + 'static> Drawable for C {
-    fn draw(&self, ctx: &mut ComponentContext, position: Rect, bound: Rect) {
-        let max_size = (position.2, position.3);
-        self.build(ctx, max_size).into_iter().zip(self.children()).for_each(|((offset, size), child)| {
+    fn draw(&mut self, ctx: &mut ComponentContext, position: Rect, bound: Rect) {
+        let size = (position.2, position.3);
+        Events::on_resize(self, ctx, size);
+        self.build(ctx, size).into_iter().zip(self.children_mut()).for_each(|((offset, size), child)| {
             let position = (
                 position.0+offset.0, position.1+offset.1,//Screen Offset Total
                 size.0, size.1//Size of underlaying component
@@ -242,39 +245,36 @@ impl<C: _Component + ?Sized + 'static> Drawable for C {
         })
     }
 
-    fn size(&self, ctx: &mut ComponentContext) -> (Option<u32>, Option<u32>) {Component::size(self, ctx)}
+    fn size(&self, ctx: &mut ComponentContext) -> SizeInfo {_Component::size(self, ctx)}
+
     fn on_tick(&mut self, ctx: &mut ComponentContext) {
-        Component::on_tick(self, ctx);
+        Events::on_tick(self, ctx);
         self.children_mut().into_iter().for_each(|c| c.on_tick(ctx));
     }
+
     fn on_click(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>) {
-        let position = Component::on_click(self, ctx, position).then_some(position).flatten();
+        let position = Events::on_click(self, ctx, position).then_some(position).flatten();
         self.pass_event(ctx, max_size, position, true)
     }
     fn on_move(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>) {
-        let position = Component::on_move(self, ctx, position).then_some(position).flatten();
+        let position = Events::on_move(self, ctx, position).then_some(position).flatten();
         self.pass_event(ctx, max_size, position, false)
     }
 }
 
-pub trait Layout: std::fmt::Debug {
-    fn build(&self, ctx: &mut ComponentContext, max_size: (u32, u32), items: Vec<(Option<u32>, Option<u32>)>) -> Vec<((i32, i32), (u32, u32))>;
-    fn size(&self, ctx: &mut ComponentContext, items: Vec<(Option<u32>, Option<u32>)>) -> (Option<u32>, Option<u32>);
+pub trait Layout: Debug {
+    fn build(&self, ctx: &mut ComponentContext, max_size: (u32, u32), items: Vec<SizeInfo>) -> Vec<((i32, i32), (u32, u32))>;
+    fn size(&self, ctx: &mut ComponentContext, items: Vec<SizeInfo>) -> SizeInfo;
 }
 
 #[derive(Clone, Debug)]
-pub struct DefaultLayout;
+pub struct DefaultLayout;//Stack((Offset::Start, Offset::Start), (Size::Fit, Size::Fit))
 impl Layout for DefaultLayout {
-    fn build(&self, _ctx: &mut ComponentContext, max_size: (u32, u32), items: Vec<(Option<u32>, Option<u32>)>) -> Vec<((i32, i32), (u32, u32))> {
-        items.into_iter().map(|(w, h)| ((0, 0), (w.unwrap_or(max_size.0), h.unwrap_or(max_size.1)))).collect()
+    fn build(&self, _ctx: &mut ComponentContext, size: (u32, u32), items: Vec<SizeInfo>) -> Vec<((i32, i32), (u32, u32))> {
+        items.into_iter().map(|i| ((0, 0), i.get(size))).collect()
     }
 
-    fn size(&self, _ctx: &mut ComponentContext, items: Vec<(Option<u32>, Option<u32>)>) -> (Option<u32>, Option<u32>) {
-        items.into_iter().fold((Some(0), Some(0)), |(ow, oh), (w, h)| {
-            (
-                ow.and_then(|ow| w.map(|w| ow.max(w))),
-                oh.and_then(|oh| h.map(|h| oh.max(h))),
-            )
-        })
+    fn size(&self, _ctx: &mut ComponentContext, items: Vec<SizeInfo>) -> SizeInfo {
+        items.into_iter().reduce(|s, i| s.max(i)).unwrap_or_default()
     }
 }

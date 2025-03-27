@@ -36,7 +36,7 @@ pub struct WinitApp<A: WinitAppTrait> {
     app: Arc<Mutex<Option<A>>>,
     #[cfg(not(target_arch="wasm32"))]
     runtime: tokio::runtime::Runtime,
-    mouse: (u32, u32)
+    mouse: (u32, u32),
 }
 
 impl<A: WinitAppTrait + 'static> WinitApp<A> {
@@ -49,7 +49,7 @@ impl<A: WinitAppTrait + 'static> WinitApp<A> {
             app: Arc::new(Mutex::new(None)),
             #[cfg(not(target_arch="wasm32"))]
             runtime: tokio::runtime::Runtime::new().unwrap(),
-            mouse: (0, 0)
+            mouse: (0, 0),
         }
     }
 
