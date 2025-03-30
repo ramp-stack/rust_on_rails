@@ -37,5 +37,5 @@ pub mod prelude {
     pub use include_dir;
     pub use include_dir::include_dir as include_assets;
 
-    //pub use proc::Component;
+    pub use proc::Component;
 }
