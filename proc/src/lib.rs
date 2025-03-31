@@ -9,7 +9,7 @@ enum ChildType {
 }
 
 #[proc_macro_derive(Component, attributes(skip))]
-pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn derive_component(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -82,4 +82,15 @@ pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         }
     };
     proc_macro::TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(Plugin)]
+pub fn derive_plugin(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    proc_macro::TokenStream::from(quote!{
+        impl #impl_generics Plugin for #name #ty_generics #where_clause {}
+    })
 }

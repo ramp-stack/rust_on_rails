@@ -4,6 +4,7 @@ use crate::canvas;
 use include_dir::{DirEntry, Dir};
 
 use std::collections::HashMap;
+use std::any::TypeId;
 use std::fmt::Debug;
 
 mod sizing;
@@ -18,19 +19,17 @@ type Rect = (i32, i32, u32, u32);
 
 //None -> Some(0) -> Some(u32::Max)
 
-pub trait Plugin {
-    fn name() -> &'static str where Self: Sized;
-}
+pub trait Plugin {}
 
 pub struct ComponentContext<'a> {
-    plugins: &'a mut HashMap<&'static str, Box<dyn std::any::Any>>,
+    plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
     assets: &'a mut Vec<Dir<'static>>,
     canvas: &'a mut CanvasContext
 }
 
 impl<'a> ComponentContext<'a> {
     pub fn new(
-        plugins: &'a mut HashMap<&'static str, Box<dyn std::any::Any>>,
+        plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
         assets: &'a mut Vec<Dir<'static>>,
         canvas: &'a mut CanvasContext
     ) -> Self {
@@ -38,12 +37,12 @@ impl<'a> ComponentContext<'a> {
     }
 
     pub fn configure_plugin<P: Plugin + 'static>(&mut self, plugin: P) {
-        self.plugins.insert(P::name(), Box::new(plugin));
+        self.plugins.insert(TypeId::of::<P>(), Box::new(plugin));
     }
 
     pub fn get<P: Plugin + 'static>(&mut self) -> &mut P {
-        self.plugins.get_mut(P::name())
-            .unwrap_or_else(|| panic!("Plugin Not Configured: {}", P::name()))
+        self.plugins.get_mut(&TypeId::of::<P>())
+            .unwrap_or_else(|| panic!("Plugin Not Configured: {:?}", std::any::type_name::<P>()))
             .downcast_mut().unwrap()
     }
 
@@ -67,7 +66,7 @@ pub trait ComponentAppTrait {
 }
 
 pub struct ComponentApp<A: ComponentAppTrait> {
-    plugins: HashMap<&'static str, Box<dyn std::any::Any>>,
+    plugins: HashMap<TypeId, Box<dyn std::any::Any>>,
     assets: Vec<Dir<'static>>,
     app: Box<dyn Drawable>,
     _p: std::marker::PhantomData<A>
@@ -157,7 +156,7 @@ impl Drawable for Text {
             else if self.1.1 > 0 {self.1 = Color(0, 0, 255, 255)}
             else if self.1.2 > 0 {self.1 = Color(255, 0, 0, 255)}
         }
-        println!("Text: {:?}", position);
+        println!("text: {:?}", position);
     }
 }
 

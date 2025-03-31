@@ -1965,6 +1965,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8cf8e6a8aa66ce33f63993ffc4ea4271eb5b0530a9002db8455ea6050c77bfa"
 
 [[package]]
+name = "proc"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.94",
+ "quote 1.0.40",
+ "syn 2.0.100",
+]
+
+[[package]]
 name = "proc-macro-crate"
 version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2258,6 +2267,7 @@ dependencies = [
  "include_dir",
  "log",
  "nsvg",
+ "proc",
  "tokio",
  "wasm-bindgen",
  "wasm-bindgen-futures",
