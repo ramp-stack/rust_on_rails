@@ -17,8 +17,6 @@ pub use canvas::Color;
 
 type Rect = (i32, i32, u32, u32);
 
-//None -> Some(0) -> Some(u32::Max)
-
 pub trait Plugin {}
 
 pub struct ComponentContext<'a> {
@@ -96,7 +94,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let (x, y) = ctx.mouse();
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         let size = self.app.size(&mut ctx).get((width, height));
-        self.app.on_click(&mut ctx, size, Some((x, y)));
+        let pos = Some((x, y)).filter(|(x, y)| *x < size.0 && *y < size.1);
+        self.app.on_click(&mut ctx, size, pos);
     }
 
     async fn on_move(&mut self, ctx: &mut CanvasContext) {
@@ -105,7 +104,8 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let (x, y) = ctx.mouse();
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         let size = self.app.size(&mut ctx).get((width, height));
-        self.app.on_move(&mut ctx, size, Some((x, y)));
+        let pos = Some((x, y)).filter(|(x, y)| *x < size.0 && *y < size.1);
+        self.app.on_move(&mut ctx, size, pos);
     }
 
     async fn on_press(&mut self, _ctx: &mut CanvasContext, _t: String) {}
@@ -209,16 +209,19 @@ trait _Component: Component {
     }
 
     fn pass_event(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>, on_click: bool) {
-        let mut clicked = false;
+        let mut passed = false;
         self.build(ctx, max_size).into_iter().zip(self.children_mut()).rev().for_each(|((offset, size), child)| {//Reverse to click on the top most element
-            let position = position.and_then(|position| {
-                if !clicked && (position.0 as i32) > offset.0 && (position.0 as i32) < offset.0+size.0 as i32 && (position.1 as i32) > offset.1 && (position.1 as i32) < offset.1+size.1 as i32 {
-                    clicked = true;
-                    Some((position.0-offset.0 as u32, position.1-offset.1 as u32))
-                } else {None}
-            });
+            let position = position.and_then(|position| (!passed).then(|| (
+                (position.0 as i32) > offset.0 &&
+                 (position.0 as i32) < offset.0+size.0 as i32 &&
+                 (position.1 as i32) > offset.1 &&
+                 (position.1 as i32) < offset.1+size.1 as i32
+                ).then(|| {
+                    passed = true;
+                    (position.0-offset.0 as u32, position.1-offset.1 as u32)
+            })).flatten());
             if on_click { child.on_click(ctx, size, position); } else { child.on_move(ctx, size, position); }
-        })
+        });
     }
 }
 impl<C: Component + ?Sized> _Component for C {}
