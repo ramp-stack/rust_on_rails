@@ -108,7 +108,10 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         self.app.on_move(&mut ctx, size, pos);
     }
 
-    async fn on_press(&mut self, _ctx: &mut CanvasContext, _t: String) {}
+    async fn on_press(&mut self, ctx: &mut CanvasContext, text: String) {
+        let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
+        self.app.on_press(&mut ctx, text);
+    }
 }
 
 #[macro_export]
@@ -125,7 +128,7 @@ pub trait Drawable: Debug {
     fn on_tick(&mut self, _ctx: &mut ComponentContext) {}
     fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: Option<(u32, u32)>) {}
     fn on_move(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: Option<(u32, u32)>) {}
-
+    fn on_press(&mut self, _ctx: &mut ComponentContext, _text: String) {}
 }
 
 // Text, Color, Opacity, text size, line height, font
@@ -156,7 +159,6 @@ impl Drawable for Text {
             else if self.1.1 > 0 {self.1 = Color(0, 0, 255, 255)}
             else if self.1.2 > 0 {self.1 = Color(255, 0, 0, 255)}
         }
-        println!("text: {:?}", position);
     }
 }
 
@@ -189,6 +191,7 @@ pub trait Events: Debug {
     fn on_tick(&mut self, _ctx: &mut ComponentContext) {}
     fn on_click(&mut self, _ctx: &mut ComponentContext, _position: Option<(u32, u32)>) -> bool {true}
     fn on_move(&mut self, _ctx: &mut ComponentContext, _position: Option<(u32, u32)>) -> bool {true}
+    fn on_press(&mut self, _ctx: &mut ComponentContext, _text: String) -> bool {true}
 }
 
 pub trait Component: Events + Debug {
@@ -261,6 +264,12 @@ impl<C: _Component + ?Sized + 'static> Drawable for C {
     fn on_move(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>) {
         let position = Events::on_move(self, ctx, position).then_some(position).flatten();
         self.pass_event(ctx, max_size, position, false)
+    }
+
+    fn on_press(&mut self, ctx: &mut ComponentContext, text: String) {
+        if Events::on_press(self, ctx, text.clone()) {
+            self.children_mut().into_iter().for_each(|c| c.on_press(ctx, text.clone()));
+        }
     }
 }
 

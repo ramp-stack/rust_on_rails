@@ -4,6 +4,8 @@ use winit::keyboard::{PhysicalKey, KeyCode};
 use winit::application::ApplicationHandler;
 use winit::window::{Window, WindowId};
 
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+
 #[cfg(target_os = "android")]
 use winit::platform::android::EventLoopBuilderExtAndroid;
 #[cfg(target_os = "android")]
@@ -260,18 +262,20 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                         });
                     }
                 },
-                WindowEvent::KeyboardInput{event: KeyEvent{state: ElementState::Pressed, text: Some(text), ..}, ..} => {
-                    let app = self.app.clone();
-                    #[cfg(not(target_arch="wasm32"))]
-                    {
-                        self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_press(text.to_string()));
-                    }
+                WindowEvent::KeyboardInput{event, ..} => {
+                    if let Some(text) = event.text_with_all_modifiers() {
+                        let app = self.app.clone();
+                        #[cfg(not(target_arch="wasm32"))]
+                        {
+                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_press(text.to_string()));
+                        }
 
-                    #[cfg(target_arch="wasm32")]
-                    {
-                        wasm_bindgen_futures::spawn_local(async move {
-                            app.lock().unwrap().as_mut().unwrap().on_press(text.to_string()).await;
-                        });
+                        #[cfg(target_arch="wasm32")]
+                        {
+                            wasm_bindgen_futures::spawn_local(async move {
+                                app.lock().unwrap().as_mut().unwrap().on_press(text.to_string()).await;
+                            });
+                        }
                     }
                 },
                 _ => {
