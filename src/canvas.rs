@@ -89,7 +89,11 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         self.canvas.render();
     }
 
-    async fn on_mouse(&mut self, event: MouseEvent) {
+    async fn on_mouse(&mut self, mut event: MouseEvent) {
+        event.position = (
+            self.context.size.scale_logical(event.position.0),
+            self.context.size.scale_logical(event.position.1)
+        );
         self.app.on_mouse(&mut self.context, event).await
     }
     async fn on_keyboard(&mut self, event: KeyboardEvent) {

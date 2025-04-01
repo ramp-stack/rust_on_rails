@@ -207,9 +207,10 @@ trait _Component: Component {
         self.layout().size(ctx, sizes)
     }
 
-    fn pass_mouse(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), mut event: MouseEvent) {
+    fn pass_mouse(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), event: MouseEvent) {
         let mut passed = false;
         self.build(ctx, max_size).into_iter().zip(self.children_mut()).rev().for_each(|((offset, size), child)| {//Reverse to click on the top most element
+            let mut event = event.clone();
             event.position = event.position.and_then(|position| (!passed).then(|| (
                 (position.0 as i32) > offset.0 &&
                  (position.0 as i32) < offset.0+size.0 as i32 &&
