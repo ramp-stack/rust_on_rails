@@ -159,6 +159,11 @@ impl Drawable for Text {
     }
 }
 
+impl Text {
+    pub fn value(&mut self) -> &mut String { &mut self.0 }
+    pub fn color(&mut self) -> &mut Color { &mut self.1 }
+}
+
 pub use canvas::Shape as ShapeType;
 
 #[derive(Clone, Copy, Debug)]
@@ -172,6 +177,10 @@ impl Drawable for Shape {
     }
 }
 
+impl Shape {
+    pub fn color(&mut self) -> &mut Color { &mut self.1 }
+}
+
 #[derive(Clone, Debug)]
 pub struct Image(pub ShapeType, pub resources::Image, pub Option<Color>);
 
@@ -182,6 +191,11 @@ impl Drawable for Image {
         ctx.canvas.draw(Area((pos.0, pos.1), Some(bound)), CanvasItem::Image(self.0, self.1.clone().into_inner(), self.2))
     }
 }
+
+impl Image {
+    pub fn color(&mut self) -> &mut Option<Color> { &mut self.2 }
+}
+
 
 pub trait Events: Debug {
     fn on_resize(&mut self, _ctx: &mut ComponentContext, _size: (u32, u32)) {}
