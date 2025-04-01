@@ -14,6 +14,7 @@ pub use crate::canvas::CanvasApp;
 #[cfg(feature = "canvas")]
 pub mod prelude {
     pub use crate::*;
+    pub use crate::canvas::{MouseEvent, MouseState, KeyboardEvent, KeyboardState};
     pub use crate::canvas::{CanvasItem, Area, Color, Shape, Text, Image, Font};
     pub use crate::canvas::CanvasAppTrait as App;
     pub use crate::canvas::CanvasContext as Context;
@@ -28,7 +29,7 @@ pub use components::ComponentApp;
 #[cfg(feature = "components")]
 pub mod prelude {
     pub use crate::*;
-//  pub use components::{resources, Color, Image, Shape, ShapeType, Text, ComponentBuilder, Drawable, Vec2, Rect, Plugin};
+    pub use crate::components::{MouseEvent, MouseState, KeyboardEvent, KeyboardState};
     pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, DefaultLayout, Drawable, Events, SizeInfo, MinSize, MaxSize};
 
     pub use crate::components::ComponentAppTrait as App;

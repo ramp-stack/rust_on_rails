@@ -1,5 +1,6 @@
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area};
 use crate::canvas;
+use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area};
+pub use crate::canvas::{MouseState, KeyboardEvent, KeyboardState};
 
 use include_dir::{DirEntry, Dir};
 
@@ -16,6 +17,12 @@ use resources::Font;
 pub use canvas::Color;
 
 type Rect = (i32, i32, u32, u32);
+
+#[derive(Debug, Clone, Copy)]
+pub struct MouseEvent {
+    pub position: Option<(u32, u32)>,
+    pub state: MouseState
+}
 
 pub trait Plugin {}
 
@@ -88,29 +95,20 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         self.app.draw(&mut ctx, (0, 0, size.0, size.1), (0, 0, width, height));
     }
 
-    async fn on_click(&mut self, ctx: &mut CanvasContext) {
+    async fn on_mouse(&mut self, ctx: &mut CanvasContext, event: canvas::MouseEvent) {
         let width = ctx.width();
         let height = ctx.height();
-        let (x, y) = ctx.mouse();
+        let (x, y) = event.position;
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         let size = self.app.size(&mut ctx).get((width, height));
-        let pos = Some((x, y)).filter(|(x, y)| *x < size.0 && *y < size.1);
-        self.app.on_click(&mut ctx, size, pos);
+        let position = Some((x, y)).filter(|(x, y)| *x < size.0 && *y < size.1);
+        let event = MouseEvent{position, state: event.state};
+        self.app.on_mouse(&mut ctx, size, event);
     }
 
-    async fn on_move(&mut self, ctx: &mut CanvasContext) {
-        let width = ctx.width();
-        let height = ctx.height();
-        let (x, y) = ctx.mouse();
+    async fn on_keyboard(&mut self, ctx: &mut CanvasContext, event: KeyboardEvent) {
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
-        let size = self.app.size(&mut ctx).get((width, height));
-        let pos = Some((x, y)).filter(|(x, y)| *x < size.0 && *y < size.1);
-        self.app.on_move(&mut ctx, size, pos);
-    }
-
-    async fn on_press(&mut self, ctx: &mut CanvasContext, text: String) {
-        let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
-        self.app.on_press(&mut ctx, text);
+        self.app.on_keyboard(&mut ctx, event);
     }
 }
 
@@ -126,9 +124,8 @@ pub trait Drawable: Debug {
 
     fn draw(&mut self, _ctx: &mut ComponentContext, position: Rect, bound: Rect);
     fn on_tick(&mut self, _ctx: &mut ComponentContext) {}
-    fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: Option<(u32, u32)>) {}
-    fn on_move(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _position: Option<(u32, u32)>) {}
-    fn on_press(&mut self, _ctx: &mut ComponentContext, _text: String) {}
+    fn on_mouse(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), _event: MouseEvent) {}
+    fn on_keyboard(&mut self, _ctx: &mut ComponentContext, _event: KeyboardEvent) {}
 }
 
 // Text, Color, Opacity, text size, line height, font
@@ -153,8 +150,8 @@ impl Drawable for Text {
         ctx.canvas.draw(Area((position.0, position.1), Some(bound)), CanvasItem::Text(self.clone().into_inner()))
     }
 
-    fn on_click(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), position: Option<(u32, u32)>) {
-        if position.is_some() {
+    fn on_mouse(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), event: MouseEvent) {
+        if event.position.is_some() {
             if self.1.0 > 0 {self.1 = Color(0, 255, 0, 255)}
             else if self.1.1 > 0 {self.1 = Color(0, 0, 255, 255)}
             else if self.1.2 > 0 {self.1 = Color(255, 0, 0, 255)}
@@ -189,9 +186,8 @@ impl Drawable for Image {
 pub trait Events: Debug {
     fn on_resize(&mut self, _ctx: &mut ComponentContext, _size: (u32, u32)) {}
     fn on_tick(&mut self, _ctx: &mut ComponentContext) {}
-    fn on_click(&mut self, _ctx: &mut ComponentContext, _position: Option<(u32, u32)>) -> bool {true}
-    fn on_move(&mut self, _ctx: &mut ComponentContext, _position: Option<(u32, u32)>) -> bool {true}
-    fn on_press(&mut self, _ctx: &mut ComponentContext, _text: String) -> bool {true}
+    fn on_mouse(&mut self, _ctx: &mut ComponentContext, _event: MouseEvent) -> bool {true}
+    fn on_keyboard(&mut self, _ctx: &mut ComponentContext, _event: KeyboardEvent) -> bool {true}
 }
 
 pub trait Component: Events + Debug {
@@ -211,10 +207,10 @@ trait _Component: Component {
         self.layout().size(ctx, sizes)
     }
 
-    fn pass_event(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>, on_click: bool) {
+    fn pass_mouse(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), mut event: MouseEvent) {
         let mut passed = false;
         self.build(ctx, max_size).into_iter().zip(self.children_mut()).rev().for_each(|((offset, size), child)| {//Reverse to click on the top most element
-            let position = position.and_then(|position| (!passed).then(|| (
+            event.position = event.position.and_then(|position| (!passed).then(|| (
                 (position.0 as i32) > offset.0 &&
                  (position.0 as i32) < offset.0+size.0 as i32 &&
                  (position.1 as i32) > offset.1 &&
@@ -223,7 +219,7 @@ trait _Component: Component {
                     passed = true;
                     (position.0-offset.0 as u32, position.1-offset.1 as u32)
             })).flatten());
-            if on_click { child.on_click(ctx, size, position); } else { child.on_move(ctx, size, position); }
+            child.on_mouse(ctx, size, event);
         });
     }
 }
@@ -257,18 +253,14 @@ impl<C: _Component + ?Sized + 'static> Drawable for C {
         self.children_mut().into_iter().for_each(|c| c.on_tick(ctx));
     }
 
-    fn on_click(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>) {
-        let position = Events::on_click(self, ctx, position).then_some(position).flatten();
-        self.pass_event(ctx, max_size, position, true)
-    }
-    fn on_move(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), position: Option<(u32, u32)>) {
-        let position = Events::on_move(self, ctx, position).then_some(position).flatten();
-        self.pass_event(ctx, max_size, position, false)
+    fn on_mouse(&mut self, ctx: &mut ComponentContext, max_size: (u32, u32), mut event: MouseEvent) {
+        event.position = Events::on_mouse(self, ctx, event).then_some(event.position).flatten();
+        self.pass_mouse(ctx, max_size, event)
     }
 
-    fn on_press(&mut self, ctx: &mut ComponentContext, text: String) {
-        if Events::on_press(self, ctx, text.clone()) {
-            self.children_mut().into_iter().for_each(|c| c.on_press(ctx, text.clone()));
+    fn on_keyboard(&mut self, ctx: &mut ComponentContext, event: KeyboardEvent) {
+        if Events::on_keyboard(self, ctx, event.clone()) {
+            self.children_mut().into_iter().for_each(|c| c.on_keyboard(ctx, event.clone()));
         }
     }
 }

@@ -16,6 +16,32 @@ use winit::platform::web::{WindowExtWebSys, EventLoopExtWebSys};
 
 use std::sync::{Mutex, Arc};
 
+#[derive(Debug, Clone, Copy)]
+pub enum MouseState {
+    Pressed,
+    Moved,
+    Released
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MouseEvent {
+    pub position: (u32, u32),
+    pub state: MouseState
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum KeyboardState {
+    Pressed,
+    Released
+}
+
+#[derive(Debug, Clone)]
+pub struct KeyboardEvent {
+    pub key: String,
+    pub state: KeyboardState
+}
+
+
 pub type WinitWindow = Arc<Window>;
 
 pub trait WinitAppTrait {
@@ -25,9 +51,8 @@ pub trait WinitAppTrait {
     fn prepare(&mut self, width: u32, height: u32, scale_factor: f64) -> impl std::future::Future<Output = ()>;
     fn render(&mut self) -> impl std::future::Future<Output = ()>;
 
-    fn on_click(&mut self) -> impl std::future::Future<Output = ()>;
-    fn on_move(&mut self, x: u32, y: u32) -> impl std::future::Future<Output = ()>;
-    fn on_press(&mut self, t: String) -> impl std::future::Future<Output = ()>;
+    fn on_mouse(&mut self, event: MouseEvent) -> impl std::future::Future<Output = ()>;
+    fn on_keyboard(&mut self, event: KeyboardEvent) -> impl std::future::Future<Output = ()>;
 }
 
 pub struct WinitApp<A: WinitAppTrait> {
@@ -199,34 +224,26 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                     self.scale_factor = scale_factor;
                     self.window().request_redraw();
                 },
-                WindowEvent::Touch(Touch{location, phase: TouchPhase::Started, ..}) => {
-                    self.mouse = (location.x as u32, location.y as u32);
-                    let app = self.app.clone();
-                    #[cfg(not(target_arch="wasm32"))]
-                    {
-                        self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_click());
-                    }
-
-                    #[cfg(target_arch="wasm32")]
-                    {
-                        wasm_bindgen_futures::spawn_local(async move {
-                            app.lock().unwrap().as_mut().unwrap().on_click().await;
-                        });
-                    }
-                }
-                WindowEvent::Touch(Touch{location, phase: TouchPhase::Moved, ..}) => {
+                WindowEvent::Touch(Touch{location, phase, ..}) => {
                     if self.mouse != (location.x as u32, location.y as u32) {
                         self.mouse = (location.x as u32, location.y as u32);
+                        let state = match phase {
+                            TouchPhase::Started => MouseState::Pressed,
+                            TouchPhase::Moved => MouseState::Moved,
+                            TouchPhase::Ended => MouseState::Released,
+                            TouchPhase::Cancelled => MouseState::Released
+                        };
+                        let event = MouseEvent{position: self.mouse, state};
                         let app = self.app.clone();
                         #[cfg(not(target_arch="wasm32"))]
                         {
-                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_move(location.x as u32, location.y as u32));
+                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_mouse(event));
                         }
 
                         #[cfg(target_arch="wasm32")]
                         {
                             wasm_bindgen_futures::spawn_local(async move {
-                                app.lock().unwrap().as_mut().unwrap().on_move(location.x as u32, location.y as u32).await;
+                                app.lock().unwrap().as_mut().unwrap().on_mouse(event).await;
                             });
                         }
                     }
@@ -234,46 +251,57 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                 WindowEvent::CursorMoved{position, ..} => {
                     if self.mouse != (position.x as u32, position.y as u32) {
                         self.mouse = (position.x as u32, position.y as u32);
+                        let event = MouseEvent{position: self.mouse, state: MouseState::Moved};
                         let app = self.app.clone();
                         #[cfg(not(target_arch="wasm32"))]
                         {
-                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_move(position.x as u32, position.y as u32));
+                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_mouse(event));
                         }
 
                         #[cfg(target_arch="wasm32")]
                         {
                             wasm_bindgen_futures::spawn_local(async move {
-                                app.lock().unwrap().as_mut().unwrap().on_move(position.x as u32, position.y as u32).await;
+                                app.lock().unwrap().as_mut().unwrap().on_mouse(event).await;
                             });
                         }
                     }
                 },
-                WindowEvent::MouseInput{state: ElementState::Pressed, ..} => {
+                WindowEvent::MouseInput{state, ..} => {
+                    let state = match state {
+                        ElementState::Pressed => MouseState::Pressed,
+                        ElementState::Released => MouseState::Released,
+                    };
+                    let event = MouseEvent{position: self.mouse, state};
                     let app = self.app.clone();
                     #[cfg(not(target_arch="wasm32"))]
                     {
-                        self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_click());
+                        self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_mouse(event));
                     }
 
                     #[cfg(target_arch="wasm32")]
                     {
                         wasm_bindgen_futures::spawn_local(async move {
-                            app.lock().unwrap().as_mut().unwrap().on_click().await;
+                            app.lock().unwrap().as_mut().unwrap().on_mouse(event).await;
                         });
                     }
                 },
                 WindowEvent::KeyboardInput{event, ..} => {
                     if let Some(text) = event.text_with_all_modifiers() {
+                        let state = match event.state {
+                            ElementState::Pressed => KeyboardState::Pressed,
+                            ElementState::Released => KeyboardState::Released,
+                        };
+                        let event = KeyboardEvent{key: text.to_string(), state};
                         let app = self.app.clone();
                         #[cfg(not(target_arch="wasm32"))]
                         {
-                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_press(text.to_string()));
+                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_keyboard(event));
                         }
 
                         #[cfg(target_arch="wasm32")]
                         {
                             wasm_bindgen_futures::spawn_local(async move {
-                                app.lock().unwrap().as_mut().unwrap().on_press(text.to_string()).await;
+                                app.lock().unwrap().as_mut().unwrap().on_keyboard(event).await;
                             });
                         }
                     }

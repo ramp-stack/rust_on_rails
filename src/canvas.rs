@@ -1,6 +1,6 @@
-use super::{WinitAppTrait, winit::WinitWindow};
-
 use wgpu_canvas::CanvasAtlas;
+use crate::{WinitAppTrait, winit::WinitWindow};
+pub use crate::winit::{MouseEvent, MouseState, KeyboardEvent, KeyboardState};
 
 use std::time::Instant;
 
@@ -16,13 +16,11 @@ pub struct CanvasContext{
     components: Vec<(wgpu_canvas::Area, wgpu_canvas::CanvasItem)>,
     atlas: CanvasAtlas,
     size: Size,
-    mouse: (u32, u32),
 }
 
 impl CanvasContext {
     pub fn width(&self) -> u32 {self.size.logical().0}
     pub fn height(&self) -> u32 {self.size.logical().1}
-    pub fn mouse(&self) -> (u32, u32) {self.mouse}
 
     pub fn clear(&mut self, color: Color) {
         self.components.clear();
@@ -46,9 +44,8 @@ pub trait CanvasAppTrait {
     fn new(ctx: &mut CanvasContext) -> impl std::future::Future<Output = Self> where Self: Sized;
 
     fn on_tick(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
-    fn on_click(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
-    fn on_move(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
-    fn on_press(&mut self, ctx: &mut CanvasContext, t: String) -> impl std::future::Future<Output = ()>;
+    fn on_mouse(&mut self, ctx: &mut CanvasContext, event: MouseEvent) -> impl std::future::Future<Output = ()>;
+    fn on_keyboard(&mut self, ctx: &mut CanvasContext, event: KeyboardEvent) -> impl std::future::Future<Output = ()>;
 }
 
 pub struct CanvasApp<A: CanvasAppTrait> {
@@ -92,18 +89,11 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         self.canvas.render();
     }
 
-    async fn on_click(&mut self) {
-        self.app.on_click(&mut self.context).await
+    async fn on_mouse(&mut self, event: MouseEvent) {
+        self.app.on_mouse(&mut self.context, event).await
     }
-    async fn on_move(&mut self, x: u32, y: u32) {
-        self.context.mouse = (
-            self.context.size.scale_logical(x),
-            self.context.size.scale_logical(y)
-        );
-        self.app.on_move(&mut self.context).await
-    }
-    async fn on_press(&mut self, t: String) {
-        self.app.on_press(&mut self.context, t).await
+    async fn on_keyboard(&mut self, event: KeyboardEvent) {
+        self.app.on_keyboard(&mut self.context, event).await
     }
 }
 
