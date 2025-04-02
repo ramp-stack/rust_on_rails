@@ -16,26 +16,26 @@ use winit::platform::web::{WindowExtWebSys, EventLoopExtWebSys};
 
 use std::sync::{Mutex, Arc};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MouseState {
     Pressed,
     Moved,
     Released
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MouseEvent {
     pub position: (u32, u32),
     pub state: MouseState
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyboardState {
     Pressed,
     Released
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyboardEvent {
     pub key: String,
     pub state: KeyboardState

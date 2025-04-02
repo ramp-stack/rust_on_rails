@@ -18,7 +18,7 @@ pub use canvas::Color;
 
 type Rect = (i32, i32, u32, u32);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MouseEvent {
     pub position: Option<(u32, u32)>,
     pub state: MouseState
@@ -151,7 +151,7 @@ impl Drawable for Text {
     }
 
     fn on_mouse(&mut self, _ctx: &mut ComponentContext, _max_size: (u32, u32), event: MouseEvent) {
-        if event.position.is_some() {
+        if event.state == MouseState::Pressed && event.position.is_some() {
             if self.1.0 > 0 {self.1 = Color(0, 255, 0, 255)}
             else if self.1.1 > 0 {self.1 = Color(0, 0, 255, 255)}
             else if self.1.2 > 0 {self.1 = Color(255, 0, 0, 255)}
