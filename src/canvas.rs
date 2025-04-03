@@ -87,7 +87,7 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
 
     async fn render(&mut self) {
         self.canvas.render();
-        log::error!("last_frame: {}", self.time.elapsed().as_nanos());
+        log::error!("last_frame: {}", self.time.elapsed().as_millis());
         self.time = Instant::now();
     }
 

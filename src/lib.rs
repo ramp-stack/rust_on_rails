@@ -30,7 +30,7 @@ pub use components::ComponentApp;
 pub mod prelude {
     pub use crate::*;
     pub use crate::components::{MouseEvent, MouseState, KeyboardEvent, KeyboardState};
-    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, DefaultLayout, Drawable, Events, SizeInfo, MinSize, MaxSize};
+    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, DefaultLayout, Drawable, Events, SizeInfo};
 
     pub use crate::components::ComponentAppTrait as App;
     pub use crate::components::ComponentContext as Context;
