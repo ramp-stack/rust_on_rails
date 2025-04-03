@@ -48,7 +48,8 @@ pub trait WinitAppTrait {
     const LOG_LEVEL: log::Level = log::Level::Error;
 
     fn new(window: WinitWindow, width: u32, height: u32, scale_factor: f64) -> impl std::future::Future<Output = Self> where Self: Sized;
-    fn prepare(&mut self, width: u32, height: u32, scale_factor: f64) -> impl std::future::Future<Output = ()>;
+    fn on_resize(&mut self, width: u32, height: u32, scale_factor: f64) -> impl std::future::Future<Output = ()>;
+    fn prepare(&mut self) -> impl std::future::Future<Output = ()>;
     fn render(&mut self) -> impl std::future::Future<Output = ()>;
 
     fn on_mouse(&mut self, event: MouseEvent) -> impl std::future::Future<Output = ()>;
@@ -183,18 +184,12 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                     event_loop.exit();
                 },
                 WindowEvent::RedrawRequested => {
-                    let width = self.width;
-                    let height = self.height;
-                    let scale_factor = self.scale_factor;
-
                     #[cfg(target_arch="wasm32")]
                     {
                         let app = self.app.clone();
                         wasm_bindgen_futures::spawn_local(async move {
                             let mut app = app.lock().unwrap();
-                            app.as_mut().unwrap().prepare(
-                                width, height, scale_factor
-                            ).await;
+                            app.as_mut().unwrap().prepare().await;
 
                             app.as_mut().unwrap().render().await;
                             drop(app);
@@ -204,9 +199,7 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                     #[cfg(not(target_arch="wasm32"))]
                     {
                         self.runtime.block_on(
-                            self.app.lock().unwrap().as_mut().unwrap().prepare(
-                                width, height, scale_factor
-                            )
+                            self.app.lock().unwrap().as_mut().unwrap().prepare()
                         );
                         self.runtime.block_on(
                             self.app.lock().unwrap().as_mut().unwrap().render()
@@ -218,10 +211,45 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                 WindowEvent::Resized(size) => {
                     self.width = size.width;
                     self.height = size.height;
+                    let scale_factor = self.scale_factor;
+                    #[cfg(target_arch="wasm32")]
+                    {
+                        let app = self.app.clone();
+                        wasm_bindgen_futures::spawn_local(async move {
+                            let mut app = app.lock().unwrap();
+                            app.as_mut().unwrap().on_resize(size.width, size.height, scale_factor).await;
+                            drop(app);
+                        });
+                    }
+
+                    #[cfg(not(target_arch="wasm32"))]
+                    {
+                        self.runtime.block_on(
+                            self.app.lock().unwrap().as_mut().unwrap().on_resize(size.width, size.height, scale_factor)
+                        );
+                    }
                     self.window().request_redraw();
                 },
                 WindowEvent::ScaleFactorChanged{scale_factor, ..} => {
+                    let width = self.width;
+                    let height = self.height;
                     self.scale_factor = scale_factor;
+                    #[cfg(target_arch="wasm32")]
+                    {
+                        let app = self.app.clone();
+                        wasm_bindgen_futures::spawn_local(async move {
+                            let mut app = app.lock().unwrap();
+                            app.as_mut().unwrap().on_resize(width, height, scale_factor).await;
+                            drop(app);
+                        });
+                    }
+
+                    #[cfg(not(target_arch="wasm32"))]
+                    {
+                        self.runtime.block_on(
+                            self.app.lock().unwrap().as_mut().unwrap().on_resize(width, height, scale_factor)
+                        );
+                    }
                     self.window().request_redraw();
                 },
                 WindowEvent::Touch(Touch{location, phase, ..}) => {

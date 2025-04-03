@@ -19,9 +19,6 @@ pub struct CanvasContext{
 }
 
 impl CanvasContext {
-    pub fn width(&self) -> u32 {self.size.logical().0}
-    pub fn height(&self) -> u32 {self.size.logical().1}
-
     pub fn clear(&mut self, color: Color) {
         self.components.clear();
         self.components.push((
@@ -41,8 +38,9 @@ impl CanvasContext {
 }
 
 pub trait CanvasAppTrait {
-    fn new(ctx: &mut CanvasContext) -> impl std::future::Future<Output = Self> where Self: Sized;
+    fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> impl std::future::Future<Output = Self> where Self: Sized;
 
+    fn on_resize(&mut self, ctx: &mut CanvasContext, width: u32, height: u32) -> impl std::future::Future<Output = ()>;
     fn on_tick(&mut self, ctx: &mut CanvasContext) -> impl std::future::Future<Output = ()>;
     fn on_mouse(&mut self, ctx: &mut CanvasContext, event: MouseEvent) -> impl std::future::Future<Output = ()>;
     fn on_keyboard(&mut self, ctx: &mut CanvasContext, event: KeyboardEvent) -> impl std::future::Future<Output = ()>;
@@ -63,7 +61,7 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
             size: Size::new(width, height, scale_factor),
             ..Default::default()
         };
-        let app = A::new(&mut context).await;
+        let app = A::new(&mut context, width, height).await;
 
         CanvasApp{
             context,
@@ -73,10 +71,14 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         }
     }
 
-    async fn prepare(&mut self, width: u32, height: u32, scale_factor: f64) {
+    async fn on_resize(&mut self, width: u32, height: u32, scale_factor: f64) {
         let (width, height) = self.canvas.resize(width, height);
-        self.context.size = Size::new(width, height, scale_factor);
+        let size = Size::new(width, height, scale_factor);
+        self.app.on_resize(&mut self.context, size.logical().0, size.logical().1).await;
+        self.context.size = size;
+    }
 
+    async fn prepare(&mut self) {
         self.app.on_tick(&mut self.context).await;
         let items = self.context.components.drain(..).collect();
 
@@ -84,9 +86,9 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
     }
 
     async fn render(&mut self) {
-        log::error!("last_frame: {}", self.time.elapsed().as_millis());
-        self.time = Instant::now();
         self.canvas.render();
+        log::error!("last_frame: {}", self.time.elapsed().as_nanos());
+        self.time = Instant::now();
     }
 
     async fn on_mouse(&mut self, mut event: MouseEvent) {

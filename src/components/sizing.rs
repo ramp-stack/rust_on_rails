@@ -4,6 +4,14 @@ use std::ops::{Add, Sub};
 #[derive(PartialOrd, Ord, PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub struct MinSize(pub u32);
 
+impl AsRef<u32> for MinSize {
+    fn as_ref(&self) -> &u32 {&self.0}
+}
+
+impl AsMut<u32> for MinSize {
+    fn as_mut(&mut self) -> &mut u32 {&mut self.0}
+}
+
 impl MinSize {
     pub fn get(&self, s: u32) -> u32 {s.max(self.0)}
 }
