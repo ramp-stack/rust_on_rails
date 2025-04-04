@@ -1,15 +1,14 @@
 use crate::canvas;
 use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Area};
-pub use crate::canvas::{MouseState, KeyboardEvent, KeyboardState};
+pub use crate::canvas::{MouseState, KeyboardEvent, KeyboardState, NamedKey, Key, Field};
 
 use include_dir::{DirEntry, Dir};
+
+use crate::state::State;
 
 use std::collections::HashMap;
 use std::any::TypeId;
 use std::fmt::Debug;
-
-//mod sizing;
-//pub use sizing::{MinSize, MaxSize, SizeInfo};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SizeInfo {
@@ -87,14 +86,14 @@ pub trait Plugin {}
 pub struct ComponentContext<'a> {
     plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
     assets: &'a mut Vec<Dir<'static>>,
-    canvas: &'a mut CanvasContext
+    canvas: &'a mut CanvasContext,
 }
 
 impl<'a> ComponentContext<'a> {
     pub fn new(
         plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
         assets: &'a mut Vec<Dir<'static>>,
-        canvas: &'a mut CanvasContext
+        canvas: &'a mut CanvasContext,
     ) -> Self {
         ComponentContext{plugins, assets, canvas}
     }
@@ -108,6 +107,8 @@ impl<'a> ComponentContext<'a> {
             .unwrap_or_else(|| panic!("Plugin Not Configured: {:?}", std::any::type_name::<P>()))
             .downcast_mut().unwrap()
     }
+
+    pub fn state(&self) -> &State {self.canvas.state()}
 
     pub fn include_assets(&mut self, dir: Dir<'static>) {
         self.assets.push(dir);
@@ -125,7 +126,7 @@ impl<'a> ComponentContext<'a> {
 }
 
 pub trait ComponentAppTrait {
-    fn new(ctx: &mut ComponentContext) -> impl std::future::Future<Output = Box<dyn Drawable>> where Self: Sized;
+    fn root(ctx: &mut ComponentContext) -> Box<dyn Drawable> where Self: Sized;
 }
 
 pub struct ComponentApp<A: ComponentAppTrait> {
@@ -138,20 +139,20 @@ pub struct ComponentApp<A: ComponentAppTrait> {
 }
 
 impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
-    async fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> Self {
+    fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> Self {
         let mut plugins = HashMap::new();
         let mut assets = Vec::new();
         let mut ctx = ComponentContext::new(&mut plugins, &mut assets, ctx);
-        let app = A::new(&mut ctx).await;
+        let app = A::root(&mut ctx);
         let size = app.size(&mut ctx);
         ComponentApp{plugins, assets, app, screen: (width, height), size, _p: std::marker::PhantomData::<A>}
     }
 
-    async fn on_resize(&mut self, _ctx: &mut CanvasContext, width: u32, height: u32) {
+    fn on_resize(&mut self, _ctx: &mut CanvasContext, width: u32, height: u32) {
         self.screen = (width, height);
     }
 
-    async fn on_tick(&mut self, ctx: &mut CanvasContext) {
+    fn on_tick(&mut self, ctx: &mut CanvasContext) {
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         self.app.on_tick(&mut ctx);
         self.size = self.app.size(&mut ctx);
@@ -159,7 +160,7 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         self.app.draw(&mut ctx, self.size.clone(), (0, 0, size.0, size.1), (0, 0, self.screen.0, self.screen.1));
     }
 
-    async fn on_mouse(&mut self, ctx: &mut CanvasContext, event: canvas::MouseEvent) {
+    fn on_mouse(&mut self, ctx: &mut CanvasContext, event: canvas::MouseEvent) {
         let (x, y) = event.position;
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         let size = self.size.0.get(self.screen);
@@ -168,7 +169,7 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         self.app.on_mouse(&mut ctx, self.size.clone(), size, event);
     }
 
-    async fn on_keyboard(&mut self, ctx: &mut CanvasContext, event: KeyboardEvent) {
+    fn on_keyboard(&mut self, ctx: &mut CanvasContext, event: KeyboardEvent) {
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, ctx);
         self.app.on_keyboard(&mut ctx, event);
     }
@@ -284,7 +285,7 @@ trait _Component: Component {
     fn pass_mouse(&mut self, ctx: &mut ComponentContext, size_info: SizeBranch, size: (u32, u32), event: MouseEvent) {
         let mut passed = false;
         self.build(ctx, size_info.sizes(), size).into_iter().zip(self.children_mut()).zip(size_info.1).rev().for_each(|(((offset, size), child), branch)| {//Reverse to click on the top most element
-            let mut event = event.clone();
+            let mut event = event;
             event.position = event.position.and_then(|position| (!passed).then(|| (
                 (position.0 as i32) > offset.0 &&
                  (position.0 as i32) < offset.0+size.0 as i32 &&
