@@ -63,11 +63,33 @@ pub struct CanvasApp<A: CanvasAppTrait> {
     time: Instant
 }
 
+extern "C" {
+    fn get_application_support_dir() -> *const std::os::raw::c_char;
+}
+
+
+fn get_app_support_path() -> Option<String> {
+    unsafe {
+        let ptr = get_application_support_dir();
+        if ptr.is_null() {
+            return None;
+        }
+        let c_str = std::ffi::CStr::from_ptr(ptr);
+        Some(c_str.to_string_lossy().into_owned())
+    }
+}
+
+
 impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
     async fn new(window: WinitWindow, width: u32, height: u32, scale_factor: f64) -> Self {
         let mut canvas = Canvas::new(window).await;
         let (width, height) = canvas.resize(width, height);
-        let state = State::new(std::path::PathBuf::from("test_dir")).unwrap();
+
+        if let Some(path) = get_app_support_path() {
+            panic!("MY FILE PATH {}", path);
+        }
+
+        let state = State::new(std::path::PathBuf::from("/var/mobile/Library/ios")).unwrap();
         let mut context = CanvasContext{
             components: Vec::new(),
             atlas: CanvasAtlas::default(),
