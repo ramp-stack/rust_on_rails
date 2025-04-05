@@ -4,6 +4,7 @@ use winit::keyboard::{PhysicalKey, KeyCode};
 use winit::application::ApplicationHandler;
 use winit::window::{Window, WindowId};
 
+#[cfg(not(target_arch="aarch64"))]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 #[cfg(target_os = "android")]
@@ -253,27 +254,26 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                     self.window().request_redraw();
                 },
                 WindowEvent::Touch(Touch{location, phase, ..}) => {
-                    if self.mouse != (location.x as u32, location.y as u32) {
-                        self.mouse = (location.x as u32, location.y as u32);
-                        let state = match phase {
-                            TouchPhase::Started => MouseState::Pressed,
-                            TouchPhase::Moved => MouseState::Moved,
-                            TouchPhase::Ended => MouseState::Released,
-                            TouchPhase::Cancelled => MouseState::Released
-                        };
-                        let event = MouseEvent{position: self.mouse, state};
-                        let app = self.app.clone();
-                        #[cfg(not(target_arch="wasm32"))]
-                        {
-                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_mouse(event));
-                        }
+                    self.mouse = (location.x as u32, location.y as u32);
+                    // println!("Touch event: {:?}", phase);
+                    let state = match phase {
+                        TouchPhase::Started => MouseState::Pressed,
+                        TouchPhase::Moved => MouseState::Moved,
+                        TouchPhase::Ended => MouseState::Released,
+                        TouchPhase::Cancelled => MouseState::Released
+                    };
+                    let event = MouseEvent{position: self.mouse, state};
+                    let app = self.app.clone();
+                    #[cfg(not(target_arch="wasm32"))]
+                    {
+                        self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_mouse(event));
+                    }
 
-                        #[cfg(target_arch="wasm32")]
-                        {
-                            wasm_bindgen_futures::spawn_local(async move {
-                                app.lock().unwrap().as_mut().unwrap().on_mouse(event).await;
-                            });
-                        }
+                    #[cfg(target_arch="wasm32")]
+                    {
+                        wasm_bindgen_futures::spawn_local(async move {
+                            app.lock().unwrap().as_mut().unwrap().on_mouse(event).await;
+                        });
                     }
                 },
                 WindowEvent::CursorMoved{position, ..} => {
@@ -314,23 +314,26 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                     }
                 },
                 WindowEvent::KeyboardInput{event, ..} => {
-                    if let Some(text) = event.text_with_all_modifiers() {
-                        let state = match event.state {
-                            ElementState::Pressed => KeyboardState::Pressed,
-                            ElementState::Released => KeyboardState::Released,
-                        };
-                        let event = KeyboardEvent{key: text.to_string(), state};
-                        let app = self.app.clone();
-                        #[cfg(not(target_arch="wasm32"))]
-                        {
-                            self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_keyboard(event));
-                        }
+                    #[cfg(not(target_arch="aarch64"))]
+                    {
+                        if let Some(text) = event.text_with_all_modifiers() {
+                            let state = match event.state {
+                                ElementState::Pressed => KeyboardState::Pressed,
+                                ElementState::Released => KeyboardState::Released,
+                            };
+                            let event = KeyboardEvent{key: text.to_string(), state};
+                            let app = self.app.clone();
+                            #[cfg(not(target_arch="wasm32"))]
+                            {
+                                self.runtime.block_on(app.lock().unwrap().as_mut().unwrap().on_keyboard(event));
+                            }
 
-                        #[cfg(target_arch="wasm32")]
-                        {
-                            wasm_bindgen_futures::spawn_local(async move {
-                                app.lock().unwrap().as_mut().unwrap().on_keyboard(event).await;
-                            });
+                            #[cfg(target_arch="wasm32")]
+                            {
+                                wasm_bindgen_futures::spawn_local(async move {
+                                    app.lock().unwrap().as_mut().unwrap().on_keyboard(event).await;
+                                });
+                            }
                         }
                     }
                 },
