@@ -18,7 +18,8 @@ pub struct CanvasContext{
     components: Vec<(wgpu_canvas::Area, wgpu_canvas::CanvasItem)>,
     atlas: CanvasAtlas,
     size: Size,
-    state: State
+    state: State,
+    triggered_keyboard: Vec<KeyboardEvent>
 }
 
 impl CanvasContext {
@@ -40,6 +41,10 @@ impl CanvasContext {
     }
 
     pub fn state(&self) -> &State {&self.state}
+
+    pub fn trigger_keyboard(&mut self, event: KeyboardEvent) {
+        self.triggered_keyboard.push(event);
+    }
 }
 
 pub trait CanvasAppTrait {
@@ -68,6 +73,7 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
             atlas: CanvasAtlas::default(),
             size: Size::new(width, height, scale_factor),
             state,
+            triggered_keyboard: Vec::new()
         };
         let app = A::new(&mut context, width, height);
 
@@ -87,6 +93,10 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
     }
 
     fn prepare(&mut self) {
+        //std::thread::sleep(std::time::Duration::from_secs(1));
+        self.context.triggered_keyboard.drain(..).collect::<Vec<_>>().into_iter().for_each(|event|
+            self.app.on_keyboard(&mut self.context, event)
+        );
         self.app.on_tick(&mut self.context);
         let items = self.context.components.drain(..).collect();
 

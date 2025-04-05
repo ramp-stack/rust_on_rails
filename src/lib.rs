@@ -31,14 +31,15 @@ pub use components::ComponentApp;
 #[cfg(feature = "components")]
 pub mod prelude {
     pub use crate::*;
-    pub use crate::components::{MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
-    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, DefaultLayout, Drawable, Events, SizeInfo, Field};
+    pub use crate::components::{Events, Event, TickEvent, ResizeEvent, MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
+    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, Drawable, SizeInfo, Field};
 
     pub use crate::components::ComponentAppTrait as App;
     pub use crate::components::ComponentContext as Context;
     pub use crate::create_component_entry_points as create_entry_points;
     pub use include_dir;
     pub use include_dir::include_dir as include_assets;
+    pub use downcast_rs::DowncastSync;
 
     pub use proc::{Component, Plugin};
 }
