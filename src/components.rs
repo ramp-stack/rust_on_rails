@@ -161,6 +161,7 @@ trait _Drawable: Debug {
 
 #[derive(Clone, Debug)]
 pub struct Text(pub String, pub Color, pub Option<u32>, pub u32, pub u32, pub Font);
+// text, color, max_width, font_size, line_height, font
 impl Text {
     pub fn new(text: &str, color: Color, width: Option<u32>, size: u32, line_height: u32, font: Font) -> Self {
         Text(text.to_string(), color, width, size, line_height, font)
@@ -198,7 +199,7 @@ pub use canvas::Shape as ShapeType;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Shape(pub ShapeType, pub Color);
-
+// shape, color
 impl _Drawable for Shape {
     fn size(&self, _ctx: &mut ComponentContext) -> SizeBranch {SizeBranch(SizeInfo::fixed(self.0.size()), vec![])}
 
@@ -213,7 +214,7 @@ impl Shape {
 
 #[derive(Clone, Debug)]
 pub struct Image(pub ShapeType, pub resources::Image, pub Option<Color>);
-
+// shape, image, color
 impl _Drawable for Image {
     fn size(&self, _ctx: &mut ComponentContext) -> SizeBranch {SizeBranch(SizeInfo::fixed(self.0.size()), vec![])}
 
@@ -224,6 +225,7 @@ impl _Drawable for Image {
 
 impl Image {
     pub fn color(&mut self) -> &mut Option<Color> { &mut self.2 }
+    pub fn image(&mut self) -> &mut resources::Image { &mut self.1 }
 }
 
 pub trait Component: Debug {
