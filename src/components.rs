@@ -119,7 +119,11 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let size = self.app.size(&mut ctx);
         self.built = self.app.build(&mut ctx, self.screen, size);
         self.app.event(&mut ctx, self.built.clone(), Box::new(ResizeEvent(self.built.0)));
-        events.into_iter().for_each(|event| self.app.event(&mut ctx, self.built.clone(), event));
+        events.into_iter().for_each(|event|
+            if let Some(event) = event.pass(&mut ctx, vec![((0, 0), self.built.0)]).remove(0) {
+                self.app.event(&mut ctx, self.built.clone(), event)
+            }
+        );
         self.app.draw(&mut ctx, self.built.clone(), (0, 0), (0, 0, self.screen.0, self.screen.1));
     }
 
@@ -272,7 +276,7 @@ impl<C: Component + ?Sized + 'static + Events> _Drawable for C {
     }
 
     fn event(&mut self, ctx: &mut ComponentContext, built: BuiltBranch, mut event: Box<dyn Event>) {
-        if Events::on_event(self, ctx, &mut event) {
+        if Events::on_event(self, ctx, &mut *event) {
             let children = built.1.iter().map(|(o, branch)| (*o, branch.0)).collect::<Vec<_>>();
             event.pass(ctx, children).into_iter().zip(self.children_mut()).zip(built.1).for_each(
                 |((e, child), branch)| if let Some(e) = e {child.event(ctx, branch.1, e);}

@@ -16,12 +16,6 @@ pub trait Event: Debug + DowncastSync {
 }
 impl_downcast!(sync Event);
 
-impl<E: Event + ?Sized> Event for Box<E> {
-    fn pass(self: Box<Self>, ctx: &mut ComponentContext, children: Vec<((i32, i32), (u32, u32))>) -> Vec<Option<Box<dyn Event>>> {
-        (*self).pass(ctx, children)
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MouseEvent {
     pub position: Option<(u32, u32)>,
