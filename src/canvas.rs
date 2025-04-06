@@ -84,11 +84,11 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
     async fn new(window: WinitWindow, width: u32, height: u32, scale_factor: f64) -> Self {
         let mut canvas = Canvas::new(window).await;
         let (width, height) = canvas.resize(width, height);
-        let mut path = "test_dir".to_string();
+        let path = "test_dir".to_string();
 
         #[cfg(target_os = "ios")]
         if let Some(new_path) = get_app_support_path() {
-            path = new_path;
+            let path = new_path;
         };
 
         let state = State::new(std::path::PathBuf::from(path)).unwrap();
