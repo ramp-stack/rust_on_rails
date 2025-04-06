@@ -35,7 +35,7 @@ impl Event for MouseEvent {
                     passed = true;
                     ((position.0 as i32 - offset.0) as u32, (position.1 as i32 - offset.1) as u32)
             })).flatten());
-            position.map(|p| Box::new(MouseEvent{position: Some(p), state: self.state}) as Box<dyn Event>)
+            Some(Box::new(MouseEvent{position, state: self.state}) as Box<dyn Event>)
         }).collect::<Vec<_>>().into_iter().rev().collect()
     }
 }
