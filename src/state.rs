@@ -31,7 +31,7 @@ pub struct State(Connection);
 #[cfg(not(target_arch = "wasm32"))]
 impl State {
     pub fn new(path: PathBuf) -> Result<Self, Error> {
-        std::fs::create_dir_all(path.clone()).unwrap();
+        // std::fs::create_dir_all(path.clone()).unwrap();
         let db = Connection::open(path.join("kvs.db"))?;
         db.execute("CREATE TABLE if not exists kvs(key TEXT NOT NULL UNIQUE, value TEXT);", [])?;
         Ok(State(db))
