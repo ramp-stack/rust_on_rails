@@ -1,10 +1,8 @@
 use crate::canvas;
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem};
+use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, State};
 pub use crate::canvas::{Field};
 
 use include_dir::{DirEntry, Dir};
-
-use crate::state::State;
 
 use std::collections::HashMap;
 use std::any::TypeId;

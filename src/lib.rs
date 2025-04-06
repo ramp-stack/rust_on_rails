@@ -8,8 +8,6 @@ pub use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 pub use wasm_bindgen;
 
-mod state;
-
 pub mod canvas;
 pub use crate::canvas::CanvasApp;
 

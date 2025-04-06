@@ -5,14 +5,14 @@ pub use crate::winit::{MouseEvent, MouseState, KeyboardEvent, KeyboardState, Nam
 use std::time::Instant;
 
 mod structs;
-pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font};
 use structs::Size;
+pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font};
+
+mod state;
+pub use state::{State, Field};
 
 mod renderer;
 use renderer::Canvas;
-
-use crate::state::State;
-pub use crate::state::Field;
 
 pub struct CanvasContext{
     components: Vec<(wgpu_canvas::Area, wgpu_canvas::CanvasItem)>,
