@@ -105,8 +105,10 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
 
     fn render(&mut self) {
         self.canvas.render();
-        log::error!("last_frame: {}", self.time.elapsed().as_millis());
+        log::error!("last_frame: {:?}", self.time.elapsed());
         self.time = Instant::now();
+        //println!("FREEZE");
+        //std::thread::sleep(std::time::Duration::from_secs(1000));
     }
 
     fn on_mouse(&mut self, mut event: MouseEvent) {

@@ -53,11 +53,3 @@ impl Event for TickEvent {
         children.into_iter().map(|_| Some(Box::new(*self) as Box<dyn Event>)).collect()
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub struct ResizeEvent(pub (u32, u32));
-impl Event for ResizeEvent {
-    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (u32, u32))>) -> Vec<Option<Box<dyn Event>>> {
-        children.into_iter().map(|(_, size)| Some(Box::new(ResizeEvent(size)) as Box<dyn Event>)).collect()
-    }
-}

@@ -62,7 +62,6 @@ pub fn derive_component(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     }));
 
     let expanded = quote! {
-        // The generated impl.
         impl #impl_generics Component for #name #ty_generics #where_clause {
             fn children_mut(&mut self) -> Vec<&mut dyn Drawable> {
                 let mut children = vec![];
@@ -78,7 +77,13 @@ pub fn derive_component(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
                 children
             }
-            fn layout(&self) -> &dyn Layout {&self.#layout}
+
+            fn request_size(&self, ctx: &mut Context, children: Vec<SizeRequest>) -> SizeRequest {
+                self.#layout.request_size(ctx, children)
+            }
+            fn build(&mut self, ctx: &mut Context, size: (u32, u32), children: Vec<SizeRequest>) -> Vec<Area> {
+                self.#layout.build(ctx, size, children)
+            }
         }
     };
     proc_macro::TokenStream::from(expanded)
