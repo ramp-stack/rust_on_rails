@@ -137,7 +137,9 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
      }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.window = Some(Arc::new(event_loop.create_window(Window::default_attributes()).unwrap()));
+        self.window = Some(Arc::new(event_loop.create_window(
+            Window::default_attributes().with_title("orange")
+        ).unwrap()));
         let window = self.window().clone();
 
         let size = window.inner_size();

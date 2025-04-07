@@ -198,9 +198,10 @@ impl _Drawable for Text {
     fn event(&mut self, _ctx: &mut ComponentContext, _sized: SizedBranch, event: Box<dyn Event>) {
         if let Ok(event) = event.downcast::<MouseEvent>() {
             if event.state == MouseState::Pressed && event.position.is_some() {
-                if self.color.0 > 0 {self.color = Color(0, 255, 0, 255)}
+                if self.color.0 > 0 && self.color.1 == 0 {self.color = Color(0, 255, 0, 255)}
+                else if self.color.0 > 0 && self.color.1 > 0 {self.color = Color(255, 0, 0, 255)}
                 else if self.color.1 > 0 {self.color = Color(0, 0, 255, 255)}
-                else if self.color.2 > 0 {self.color = Color(255, 0, 0, 255)}
+                else if self.color.2 > 0 {self.color = Color(255, 255, 255, 255)}
             }
         }
     }

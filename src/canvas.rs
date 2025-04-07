@@ -63,11 +63,13 @@ pub struct CanvasApp<A: CanvasAppTrait> {
     time: Instant
 }
 
-#[cfg(target_os = "ios")]extern "C" {
+#[cfg(not(target_os = "macos"))]
+extern "C" {
     fn get_application_support_dir() -> *const std::os::raw::c_char;
 }
 
-#[cfg(target_os = "ios")]fn get_app_support_path() -> Option<String> {
+#[cfg(not(target_os = "macos"))]
+fn get_app_support_path() -> Option<String> {
     unsafe {
         let ptr = get_application_support_dir();
         if ptr.is_null() {
@@ -86,9 +88,11 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         let (width, height) = canvas.resize(width, height);
         let path = "test_dir".to_string();
 
-        #[cfg(target_os = "ios")]
-        if let Some(new_path) = get_app_support_path() {
-            let path = new_path;
+        #[cfg(not(target_os = "macos"))]
+        let path = if let Some(new_path) = get_app_support_path() {
+            new_path
+        } else {
+            "test_dir".to_string()
         };
 
         let state = State::new(std::path::PathBuf::from(path)).unwrap();
