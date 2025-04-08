@@ -73,6 +73,24 @@ pub struct CanvasApp<A: CanvasAppTrait> {
     time: Instant
 }
 
+//  #[cfg(not(target_os = "macos"))]
+//  extern "C" {
+//      fn get_application_support_dir() -> *const std::os::raw::c_char;
+//  }
+
+//  #[cfg(not(target_os = "macos"))]
+//  fn get_app_support_path() -> Option<String> {
+//      unsafe {
+//          let ptr = get_application_support_dir();
+//          if ptr.is_null() {
+//              println!("COULD NOT GET APPLICATION DIRECTORY");
+//              return None;
+//          }
+//          let c_str = std::ffi::CStr::from_ptr(ptr);
+//          Some(c_str.to_string_lossy().into_owned())
+//      }
+//  }
+
 impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
     async fn new(window: WinitWindow, scheduler: Scheduler, width: u32, height: u32, scale_factor: f64) -> Self {
         let mut canvas = Canvas::new(window).await;
