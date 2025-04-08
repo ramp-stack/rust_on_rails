@@ -1,10 +1,14 @@
 use crate::canvas;
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, State};
-pub use crate::canvas::{Field};
+use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem};
+pub use crate::state::{State, Field};
+
+use crate::winit::Callback;
 
 use include_dir::{DirEntry, Dir};
 
 use std::collections::HashMap;
+use std::time::{Instant, Duration};
+use std::future::Future;
 use std::any::TypeId;
 use std::fmt::Debug;
 
@@ -32,6 +36,8 @@ type Offset = (i32, i32);
 type Rect = (i32, i32, u32, u32);
 type Size = (u32, u32);
 
+//type TaskResult = Box<dyn Future<Output = Option<Duration>> + Unpin> ;
+type Task = Box<dyn FnMut(&mut ComponentContext) -> Option<Duration>>;
 
 pub trait Plugin {}
 
@@ -60,13 +66,22 @@ impl<'a> ComponentContext<'a> {
         self.events.push(Box::new(event));
     }
 
+    pub fn schedule_task<
+        F: Fn() -> Fut + Send + 'static,
+        Fut: Future<Output = (Option<Duration>, Callback)> + 'static + Send
+    >(
+        &self, duration: Duration, task: F
+    ) {
+        self.canvas.schedule_task(duration, task);
+    }
+
     pub fn get<P: Plugin + 'static>(&mut self) -> &mut P {
         self.plugins.get_mut(&TypeId::of::<P>())
             .unwrap_or_else(|| panic!("Plugin Not Configured: {:?}", std::any::type_name::<P>()))
             .downcast_mut().unwrap()
     }
 
-    pub fn state(&self) -> &State {self.canvas.state()}
+    pub fn state(&mut self) -> &mut State {self.canvas.state()}
 
     pub fn include_assets(&mut self, dir: Dir<'static>) {
         self.assets.push(dir);
@@ -84,7 +99,7 @@ impl<'a> ComponentContext<'a> {
 }
 
 pub trait ComponentAppTrait {
-    fn root(ctx: &mut ComponentContext) -> Box<dyn Drawable> where Self: Sized;
+    fn root(ctx: &mut ComponentContext) -> impl std::future::Future<Output = Box<dyn Drawable>> where Self: Sized;
 }
 
 pub struct ComponentApp<A: ComponentAppTrait> {
@@ -98,12 +113,12 @@ pub struct ComponentApp<A: ComponentAppTrait> {
 }
 
 impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
-    fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> Self {
+    async fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> Self {
         let mut plugins = HashMap::new();
         let mut assets = Vec::new();
         let mut events = Vec::new();
         let mut ctx = ComponentContext::new(&mut plugins, &mut assets, &mut events, ctx);
-        let mut app = A::root(&mut ctx);
+        let mut app = A::root(&mut ctx).await;
         let size_request = _Drawable::request_size(&*app, &mut ctx);
         let sized_app = app.build(&mut ctx, (width, height), size_request);
         ComponentApp{plugins, assets, app, screen: (width, height), sized_app, events: Vec::new(), _p: std::marker::PhantomData::<A>}

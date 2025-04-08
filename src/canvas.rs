@@ -1,21 +1,22 @@
 use wgpu_canvas::CanvasAtlas;
-use crate::{WinitAppTrait, winit::WinitWindow};
+use crate::{WinitAppTrait, winit::{WinitWindow, Scheduler, Callback}};
 pub use crate::winit::{MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
+use std::future::Future;
 
 mod structs;
 use structs::Size;
 pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font};
 
-mod state;
-pub use state::{State, Field};
+use crate::state::{State, Field};
 
 mod renderer;
 use renderer::Canvas;
 
 pub struct CanvasContext{
     components: Vec<(wgpu_canvas::Area, wgpu_canvas::CanvasItem)>,
+    scheduler: Scheduler,
     atlas: CanvasAtlas,
     size: Size,
     state: State,
@@ -40,7 +41,16 @@ impl CanvasContext {
         self.components.push((area, item.into_inner(&self.size)));
     }
 
-    pub fn state(&self) -> &State {&self.state}
+    pub fn state(&mut self) -> &mut State {&mut self.state}
+
+    pub fn schedule_task<
+        F: Fn() -> Fut + Send + 'static,
+        Fut: Future<Output = (Option<Duration>, Callback)> + 'static + Send
+    >(
+        &self, duration: Duration, task: F
+    ) {
+        self.scheduler.schedule_task(duration, task);
+    }
 
     pub fn trigger_keyboard(&mut self, event: KeyboardEvent) {
         self.triggered_keyboard.push(event);
@@ -48,7 +58,7 @@ impl CanvasContext {
 }
 
 pub trait CanvasAppTrait {
-    fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> Self where Self: Sized;
+    fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> impl std::future::Future<Output = Self> where Self: Sized;
 
     fn on_resize(&mut self, ctx: &mut CanvasContext, width: u32, height: u32);
     fn on_tick(&mut self, ctx: &mut CanvasContext);
@@ -63,43 +73,20 @@ pub struct CanvasApp<A: CanvasAppTrait> {
     time: Instant
 }
 
-#[cfg(target_os = "ios")]extern "C" {
-    fn get_application_support_dir() -> *const std::os::raw::c_char;
-}
-
-#[cfg(target_os = "ios")]fn get_app_support_path() -> Option<String> {
-    unsafe {
-        let ptr = get_application_support_dir();
-        if ptr.is_null() {
-            println!("COULD NOT GET APPLICATION DIRECTORY");
-            return None;
-        }
-        let c_str = std::ffi::CStr::from_ptr(ptr);
-        Some(c_str.to_string_lossy().into_owned())
-    }
-}
-
-
 impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
-    async fn new(window: WinitWindow, width: u32, height: u32, scale_factor: f64) -> Self {
+    async fn new(window: WinitWindow, scheduler: Scheduler, width: u32, height: u32, scale_factor: f64) -> Self {
         let mut canvas = Canvas::new(window).await;
         let (width, height) = canvas.resize(width, height);
-        let path = "test_dir".to_string();
 
-        #[cfg(target_os = "ios")]
-        if let Some(new_path) = get_app_support_path() {
-            let path = new_path;
-        };
-
-        let state = State::new(std::path::PathBuf::from(path)).unwrap();
         let mut context = CanvasContext{
             components: Vec::new(),
+            scheduler,
             atlas: CanvasAtlas::default(),
             size: Size::new(width, height, scale_factor),
-            state,
+            state: State::default(),
             triggered_keyboard: Vec::new()
         };
-        let app = A::new(&mut context, width, height);
+        let app = A::new(&mut context, width, height).await;
 
         CanvasApp{
             context,
@@ -107,6 +94,10 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
             app,
             time: Instant::now()
         }
+    }
+
+    fn on_resumed(&mut self, window: WinitWindow) {
+        self.canvas.resumed(window);
     }
 
     fn on_resize(&mut self, width: u32, height: u32, scale_factor: f64) {
@@ -129,10 +120,14 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
 
     fn render(&mut self) {
         self.canvas.render();
-        log::error!("last_frame: {:?}", self.time.elapsed());
+        //log::error!("last_frame: {:?}", self.time.elapsed());
         self.time = Instant::now();
         //println!("FREEZE");
         //std::thread::sleep(std::time::Duration::from_secs(1000));
+    }
+
+    fn process_callback(&mut self, callback: Callback) {
+        callback(&mut self.context.state);
     }
 
     fn on_mouse(&mut self, mut event: MouseEvent) {
