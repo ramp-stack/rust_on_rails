@@ -16,7 +16,7 @@ use std::sync::Mutex;
 
 use std::sync::Arc;
 
-pub use winit::keyboard::{NamedKey, Key};
+pub use winit::keyboard::{NamedKey, Key, SmolStr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MouseState {
@@ -138,7 +138,9 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.window = Some(Arc::new(event_loop.create_window(
-            Window::default_attributes().with_title("orange")
+            Window::default_attributes()
+                .with_title("orange")
+                .with_min_inner_size(winit::dpi::LogicalSize::new(948.0, 600.0))
         ).unwrap()));
         let window = self.window().clone();
 

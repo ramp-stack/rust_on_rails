@@ -29,7 +29,7 @@ pub use components::ComponentApp;
 #[cfg(feature = "components")]
 pub mod prelude {
     pub use crate::*;
-    pub use crate::components::{Events, Event, TickEvent, MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
+    pub use crate::components::{Events, Event, TickEvent, MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key, SmolStr};
     pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, Drawable, SizeRequest, Field, Area};
 
     pub use crate::components::ComponentAppTrait as App;

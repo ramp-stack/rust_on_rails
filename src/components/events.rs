@@ -1,6 +1,6 @@
 use super::ComponentContext;
 
-pub use crate::canvas::{MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
+pub use crate::canvas::{MouseState, KeyboardEvent, KeyboardState, NamedKey, Key, SmolStr};
 
 use downcast_rs::{DowncastSync, impl_downcast};
 

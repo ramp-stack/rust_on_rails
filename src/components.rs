@@ -14,7 +14,7 @@ use resources::Font;
 mod events;
 pub use events::{
     Events, Event, TickEvent, MouseEvent, MouseState,
-    KeyboardEvent, KeyboardState, NamedKey, Key
+    KeyboardEvent, KeyboardState, NamedKey, Key, SmolStr
 };
 
 mod sizing;
@@ -195,15 +195,15 @@ impl _Drawable for Text {
         ctx.canvas.draw(canvas::Area(offset, Some(bound)), CanvasItem::Text(self.clone().into_inner()))
     }
 
-    fn event(&mut self, _ctx: &mut ComponentContext, _sized: SizedBranch, event: Box<dyn Event>) {
-        if let Ok(event) = event.downcast::<MouseEvent>() {
-            if event.state == MouseState::Pressed && event.position.is_some() {
-                if self.color.0 > 0 && self.color.1 == 0 {self.color = Color(0, 255, 0, 255)}
-                else if self.color.0 > 0 && self.color.1 > 0 {self.color = Color(255, 0, 0, 255)}
-                else if self.color.1 > 0 {self.color = Color(0, 0, 255, 255)}
-                else if self.color.2 > 0 {self.color = Color(255, 255, 255, 255)}
-            }
-        }
+    fn event(&mut self, _ctx: &mut ComponentContext, _sized: SizedBranch, _event: Box<dyn Event>) {
+        // if let Ok(event) = event.downcast::<MouseEvent>() {
+        //     if event.state == MouseState::Pressed && event.position.is_some() {
+        //         if self.color.0 > 0 && self.color.1 == 0 {self.color = Color(0, 255, 0, 255)}
+        //         else if self.color.0 > 0 && self.color.1 > 0 {self.color = Color(255, 0, 0, 255)}
+        //         else if self.color.1 > 0 {self.color = Color(0, 0, 255, 255)}
+        //         else if self.color.2 > 0 {self.color = Color(255, 255, 255, 255)}
+        //     }
+        // }
     }
 }
 

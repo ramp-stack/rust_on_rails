@@ -1,6 +1,6 @@
 use wgpu_canvas::CanvasAtlas;
 use crate::{WinitAppTrait, winit::WinitWindow};
-pub use crate::winit::{MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
+pub use crate::winit::{MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key, SmolStr};
 
 use std::time::Instant;
 
@@ -63,23 +63,23 @@ pub struct CanvasApp<A: CanvasAppTrait> {
     time: Instant
 }
 
-#[cfg(not(target_os = "macos"))]
-extern "C" {
-    fn get_application_support_dir() -> *const std::os::raw::c_char;
-}
+// #[cfg(any(target_os = "macos", target_os = "ios"))]
+// extern "C" {
+//     fn get_application_support_dir() -> *const std::os::raw::c_char;
+// }
 
-#[cfg(not(target_os = "macos"))]
-fn get_app_support_path() -> Option<String> {
-    unsafe {
-        let ptr = get_application_support_dir();
-        if ptr.is_null() {
-            println!("COULD NOT GET APPLICATION DIRECTORY");
-            return None;
-        }
-        let c_str = std::ffi::CStr::from_ptr(ptr);
-        Some(c_str.to_string_lossy().into_owned())
-    }
-}
+// #[cfg(any(target_os = "macos", target_os = "ios"))]
+// fn get_app_support_path() -> Option<String> {
+//     unsafe {
+//         let ptr = get_application_support_dir();
+//         if ptr.is_null() {
+//             println!("COULD NOT GET APPLICATION DIRECTORY");
+//             return None;
+//         }
+//         let c_str = std::ffi::CStr::from_ptr(ptr);
+//         Some(c_str.to_string_lossy().into_owned())
+//     }
+// }
 
 
 impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
@@ -88,12 +88,14 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         let (width, height) = canvas.resize(width, height);
         let path = "test_dir".to_string();
 
-        #[cfg(not(target_os = "macos"))]
-        let path = if let Some(new_path) = get_app_support_path() {
-            new_path
-        } else {
-            "test_dir".to_string()
-        };
+        // #[cfg(any(target_os = "macos", target_os = "ios"))]
+        // let path = if let Some(new_path) = get_app_support_path() {
+        //     println!("GOT NEW PATH");
+        //     new_path
+        // } else {
+        //     panic!("COULD NOT GET NEW PATH");
+        //     "test_dir".to_string()
+        // };
 
         let state = State::new(std::path::PathBuf::from(path)).unwrap();
         let mut context = CanvasContext{
