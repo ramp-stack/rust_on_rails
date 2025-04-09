@@ -8,6 +8,7 @@ use std::cmp::min;
 const SAMPLE_COUNT: u32 = 4;
 
 pub struct Canvas {
+    instance: Instance,
     surface: Surface<'static>,
     device: Device,
     queue: Queue,
@@ -76,6 +77,7 @@ impl Canvas {
         let canvas_renderer = CanvasRenderer::new(&queue, &device, &surface_caps.formats[0], multisample, Some(depth_stencil));
 
         Canvas{
+            instance,
             surface,
             device,
             queue,
@@ -84,6 +86,10 @@ impl Canvas {
             depth_view,
             canvas_renderer,
         }
+    }
+
+    pub fn resumed(&mut self, window: WinitWindow) {
+        self.surface = self.instance.create_surface(window).unwrap();
     }
 
     pub fn prepare(&mut self, atlas: &mut CanvasAtlas, items: Vec<(Area, CanvasItem)>) {

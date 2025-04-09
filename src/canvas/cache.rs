@@ -5,6 +5,29 @@ use std::fmt::Debug;
 
 use serde::{Serialize, Deserialize};
 
+#[cfg(target_os = "ios")]
+        if let Some(new_path) = get_app_support_path() {
+            let path = new_path;
+        };
+
+
+
+#[cfg(target_os = "ios")]extern "C" {
+    fn get_application_support_dir() -> *const std::os::raw::c_char;
+}
+
+#[cfg(target_os = "ios")]fn get_app_support_path() -> Option<String> {
+    unsafe {
+        let ptr = get_application_support_dir();
+        if ptr.is_null() {
+            println!("COULD NOT GET APPLICATION DIRECTORY");
+            return None;
+        }
+        let c_str = std::ffi::CStr::from_ptr(ptr);
+        Some(c_str.to_string_lossy().into_owned())
+    }
+}
+
 pub trait Field: Serialize + for<'a> Deserialize <'a> + Default + Debug {
     fn ident() -> [u8; 8] where Self: Sized + 'static {
         let mut hasher = DefaultHasher::new();

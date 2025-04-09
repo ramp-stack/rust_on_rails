@@ -1,5 +1,8 @@
+mod state;
+pub use state::{State, Field};
+
 mod winit;
-pub use winit::{WinitAppTrait, WinitApp};
+pub use winit::{WinitAppTrait, WinitApp, Callback};
 
 #[cfg(target_os = "android")]
 pub use winit::AndroidApp;
@@ -15,7 +18,7 @@ pub use crate::canvas::CanvasApp;
 pub mod prelude {
     pub use crate::*;
     pub use crate::canvas::{MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
-    pub use crate::canvas::{CanvasItem, Area, Color, Shape, Text, Image, Font, Field};
+    pub use crate::canvas::{CanvasItem, Area, Color, Shape, Text, Image, Font, State, Field};
     pub use crate::canvas::CanvasAppTrait as App;
     pub use crate::canvas::CanvasContext as Context;
     pub use crate::create_canvas_entry_points as create_entry_points;
@@ -30,7 +33,7 @@ pub use components::ComponentApp;
 pub mod prelude {
     pub use crate::*;
     pub use crate::components::{Events, Event, TickEvent, MouseEvent, MouseState, KeyboardEvent, KeyboardState, NamedKey, Key, SmolStr};
-    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, Drawable, SizeRequest, Field, Area};
+    pub use components::{resources, Plugin, Color, Shape, ShapeType, Image, Text, Layout, Component, Drawable, SizeRequest, State, Field, Area};
 
     pub use crate::components::ComponentAppTrait as App;
     pub use crate::components::ComponentContext as Context;

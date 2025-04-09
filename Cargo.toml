@@ -30,7 +30,7 @@ android_logger = "0.14.1"
 env_logger = "0.11.6"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { version = "1.43.0", features = ["rt-multi-thread"] }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "sync"] }
 rusqlite = {version="0.34.0", features=["bundled"]}
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
