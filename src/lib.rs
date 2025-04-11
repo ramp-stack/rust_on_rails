@@ -2,13 +2,16 @@
 mod base;
 pub use base::*;
 
-mod runtime;
-pub use runtime::*;
+//  mod runtime;
+//  pub use runtime::*;
 
 pub mod prelude {
     pub use crate::*;
-    pub use runtime::RuntimeAppTrait as App;
-    pub use crate::create_runtime_entry_points as create_entry_points;
+    pub use base::BaseAppTrait as App;
+    pub use base::BaseBackgroundAppTrait as BackgroundApp;
+    pub use base::BaseContext as Context;
+    pub use base::BaseAsyncContext as AsyncContext;
+    pub use crate::create_base_entry_points as create_entry_points;
 }
 
 
