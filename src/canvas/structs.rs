@@ -2,22 +2,22 @@ use super::CanvasContext;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Size {
-    width: u32,
-    height: u32,
+    width: f32,
+    height: f32,
     scale_factor: f64
 }
 
 impl Size {
-    pub fn new(width: u32, height: u32, scale_factor: f64) -> Self {
+    pub fn new(width: f32, height: f32, scale_factor: f64) -> Self {
         Size{width, height, scale_factor}
     }
 
-    pub fn scale_physical(&self, x: u32) -> u32 {
-        (x as f64 * self.scale_factor).round() as u32
+    pub fn scale_physical(&self, x: f32) -> f32 {
+        (x as f64 * self.scale_factor) as f32
     }
 
-    pub fn scale_logical(&self, x: u32) -> u32 {
-        (x as f64 / self.scale_factor).floor() as u32
+    pub fn scale_logical(&self, x: f32) -> f32 {
+        (x as f64 / self.scale_factor) as f32
     }
 
     pub fn dscale_physical(&self, x: i32) -> i32 {
@@ -28,11 +28,11 @@ impl Size {
   //    (x as f64 / self.scale_factor).floor() as i32
   //}
 
-    pub fn logical(&self) -> (u32, u32) {
+    pub fn logical(&self) -> (f32, f32) {
         (self.scale_logical(self.width), self.scale_logical(self.height))
     }
 
-    pub fn physical(&self) -> (u32, u32) {
+    pub fn physical(&self) -> (f32, f32) {
         (self.width, self.height)
     }
 }
@@ -53,7 +53,7 @@ impl Color {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Area(pub (i32, i32), pub Option<(i32, i32, u32, u32)>);
+pub struct Area(pub (i32, i32), pub Option<(i32, i32, f32, f32)>);
 
 impl Area {
     pub(crate) fn into_inner(self, z_index: u16, size: &Size) -> wgpu_canvas::Area {
@@ -72,14 +72,14 @@ impl Area {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Shape {
-    Ellipse(u32, (u32, u32)),
-    Rectangle(u32, (u32, u32)),
-    RoundedRectangle(u32, (u32, u32), u32),
+    Ellipse(f32, (f32, f32)),
+    Rectangle(f32, (f32, f32)),
+    RoundedRectangle(f32, (f32, f32), f32),
 }
 
 impl Shape {
     pub(crate) fn into_inner(self, size: &Size) -> wgpu_canvas::Shape {
-        let p = |s: (u32, u32)| (size.scale_physical(s.0), size.scale_physical(s.1));
+        let p = |s: (f32, f32)| (size.scale_physical(s.0), size.scale_physical(s.1));
         match self {
             Shape::Ellipse(stroke, s) => wgpu_canvas::Shape::Ellipse(
                 size.scale_physical(stroke), p(s)
@@ -96,7 +96,7 @@ impl Shape {
         }
     }
 
-    pub fn size(&self) -> (u32, u32) {
+    pub fn size(&self) -> (f32, f32) {
         match self {
             Shape::Ellipse(_, size) => *size,
             Shape::Rectangle(_, size) => *size,
@@ -109,9 +109,9 @@ impl Shape {
 pub struct Text {
     pub text: String,
     pub color: Color,
-    pub width: Option<u32>,
-    pub size: u32,
-    pub line_height: u32,
+    pub width: Option<f32>,
+    pub size: f32,
+    pub line_height: f32,
     pub font: Font
 }
 
@@ -119,9 +119,9 @@ impl Text {
     pub fn new(
         text: &str,
         color: Color,
-        width: Option<u32>,
-        size: u32,
-        line_height: u32,
+        width: Option<f32>,
+        size: f32,
+        line_height: f32,
         font: Font
     ) -> Self {
         Text{text: text.to_string(), color, width, size, line_height, font}
@@ -138,7 +138,7 @@ impl Text {
         }
     }
 
-    pub fn size(&self, ctx: &mut CanvasContext) -> (u32, u32) {
+    pub fn size(&self, ctx: &mut CanvasContext) -> (f32, f32) {
         let size = self.clone().into_inner(&ctx.size).size(&mut ctx.atlas);
         (ctx.size.scale_logical(size.0), ctx.size.scale_logical(size.1))
     }
@@ -170,7 +170,7 @@ impl CanvasItem {
         }
     }
 
-    pub fn size(&self, ctx: &mut CanvasContext) -> (u32, u32) {
+    pub fn size(&self, ctx: &mut CanvasContext) -> (f32, f32) {
         match self {
             CanvasItem::Shape(shape, _) => shape.size(),
             CanvasItem::Image(shape, _, _) => shape.size(),

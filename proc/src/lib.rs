@@ -99,7 +99,7 @@ pub fn derive_component(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                     fn request_size(&self, ctx: &mut Context, children: Vec<SizeRequest>) -> SizeRequest {
                         self.#layout.request_size(ctx, children)
                     }
-                    fn build(&mut self, ctx: &mut Context, size: (u32, u32), children: Vec<SizeRequest>) -> Vec<Area> {
+                    fn build(&mut self, ctx: &mut Context, size: (f32, f32), children: Vec<SizeRequest>) -> Vec<Area> {
                         self.#layout.build(ctx, size, children)
                     }
                 }
@@ -148,7 +148,7 @@ pub fn derive_component(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                     fn request_size(&self, ctx: &mut Context, mut children: Vec<SizeRequest>) -> SizeRequest {
                         children.remove(0)
                     }
-                    fn build(&mut self, ctx: &mut Context, size: (u32, u32), children: Vec<SizeRequest>) -> Vec<Area> {
+                    fn build(&mut self, ctx: &mut Context, size: (f32, f32), children: Vec<SizeRequest>) -> Vec<Area> {
                         vec![Area{offset: (0, 0), size}]
                     }
                 }

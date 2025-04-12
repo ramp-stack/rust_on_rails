@@ -33,8 +33,8 @@ pub struct RequestBranch(pub SizeRequest, Vec<RequestBranch>);
 pub struct SizedBranch(pub Size, Vec<(Offset, SizedBranch)>);
 
 type Offset = (i32, i32);
-type Rect = (i32, i32, u32, u32);
-type Size = (u32, u32);
+type Rect = (i32, i32, f32, f32);
+type Size = (f32, f32);
 
 //type TaskResult = Box<dyn Future<Output = Option<Duration>> + Unpin> ;
 type Task = Box<dyn FnMut(&mut ComponentContext) -> Option<Duration>>;
@@ -106,26 +106,26 @@ pub struct ComponentApp<A: ComponentAppTrait> {
     plugins: HashMap<TypeId, Box<dyn std::any::Any>>,
     assets: Vec<Dir<'static>>,
     app: Box<dyn Drawable>,
-    screen: (u32, u32),
+    screen: (f32, f32),
     sized_app: SizedBranch,
     events: Vec<Box<dyn Event>>,
     _p: std::marker::PhantomData<A>
 }
 
 impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
-    async fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> Self {
+    async fn new(ctx: &mut CanvasContext, width: f32, height: f32) -> Self {
         let mut plugins = HashMap::new();
         let mut assets = Vec::new();
         let mut events = Vec::new();
         let mut ctx = ComponentContext::new(&mut plugins, &mut assets, &mut events, ctx);
         let mut app = A::root(&mut ctx).await;
         let size_request = _Drawable::request_size(&*app, &mut ctx);
-        let sized_app = app.build(&mut ctx, (width, height), size_request);
-        ComponentApp{plugins, assets, app, screen: (width, height), sized_app, events: Vec::new(), _p: std::marker::PhantomData::<A>}
+        let sized_app = app.build(&mut ctx, (width as f32, height as f32), size_request);
+        ComponentApp{plugins, assets, app, screen: (width as f32, height as f32), sized_app, events: Vec::new(), _p: std::marker::PhantomData::<A>}
     }
 
-    fn on_resize(&mut self, _ctx: &mut CanvasContext, width: u32, height: u32) {
-        self.screen = (width, height);
+    fn on_resize(&mut self, _ctx: &mut CanvasContext, width: f32, height: f32) {
+        self.screen = (width as f32, height as f32);
     }
 
     fn on_tick(&mut self, ctx: &mut CanvasContext) {
@@ -185,14 +185,14 @@ trait _Drawable: Debug {
 pub struct Text{
     pub text: String,
     pub color: Color,
-    pub max_width: Option<u32>,
-    pub font_size: u32,
-    pub line_height: u32,
+    pub max_width: Option<f32>,
+    pub font_size: f32,
+    pub line_height: f32,
     pub font: Font
 }
 
 impl Text {
-    pub fn new(text: &str, color: Color, max_width: Option<u32>, font_size: u32, line_height: u32, font: Font) -> Self {
+    pub fn new(text: &str, color: Color, max_width: Option<f32>, font_size: f32, line_height: f32, font: Font) -> Self {
         Text{text: text.to_string(), color, max_width, font_size, line_height, font}
     }
 
@@ -287,10 +287,10 @@ impl<C: Component + ?Sized + 'static + Events> _Drawable for C {
 
             let bound = (
                 bound.0.max(poffset.0), bound.1.max(poffset.1),//New bound offset
-                bound.2.min((offset.0 + size.0 as i32).max(0) as u32), bound.3.min((offset.1 + size.1 as i32).max(0) as u32)//New bound size
+                bound.2.min((offset.0 + size.0 as i32).max(0) as f32), bound.3.min((offset.1 + size.1 as i32).max(0) as f32)//New bound size
             );
 
-            if bound.2 != 0 && bound.3 != 0 {
+            if bound.2 != 0.0 && bound.3 != 0.0 {
                 child.draw(ctx, branch, poffset, bound);
             }
         })

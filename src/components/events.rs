@@ -12,18 +12,18 @@ pub trait Events: Debug {
 
 pub trait Event: Debug + DowncastSync {
     ///Function for event to decide on weather to pass the event to a child, Event can also be modified for the child
-    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (u32, u32))>) -> Vec<Option<Box<dyn Event>>>;
+    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (f32, f32))>) -> Vec<Option<Box<dyn Event>>>;
 }
 impl_downcast!(sync Event);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MouseEvent {
-    pub position: Option<(u32, u32)>,
+    pub position: Option<(f32, f32)>,
     pub state: MouseState,
 }
 
 impl Event for MouseEvent {
-    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (u32, u32))>) -> Vec<Option<Box<dyn Event>>> {
+    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (f32, f32))>) -> Vec<Option<Box<dyn Event>>> {
         let mut passed = false;
         children.into_iter().rev().map(|(offset, size)| {//Reverse to click on the top most element
             let position = self.position.and_then(|position| (!passed).then(|| (
@@ -33,7 +33,7 @@ impl Event for MouseEvent {
                  (position.1 as i32) < offset.1+size.1 as i32
                 ).then(|| {
                     passed = true;
-                    ((position.0 as i32 - offset.0) as u32, (position.1 as i32 - offset.1) as u32)
+                    ((position.0 as i32 - offset.0) as f32, (position.1 as i32 - offset.1) as f32)
             })).flatten());
             Some(Box::new(MouseEvent{position, state: self.state}) as Box<dyn Event>)
         }).collect::<Vec<_>>().into_iter().rev().collect()
@@ -41,7 +41,7 @@ impl Event for MouseEvent {
 }
 
 impl Event for KeyboardEvent {
-    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (u32, u32))>) -> Vec<Option<Box<dyn Event>>> {
+    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (f32, f32))>) -> Vec<Option<Box<dyn Event>>> {
         children.into_iter().map(|_| Some(self.clone() as Box<dyn Event>)).collect()
     }
 }
@@ -49,7 +49,7 @@ impl Event for KeyboardEvent {
 #[derive(Debug, Clone, Copy)]
 pub struct TickEvent;
 impl Event for TickEvent {
-    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (u32, u32))>) -> Vec<Option<Box<dyn Event>>> {
+    fn pass(self: Box<Self>, _ctx: &mut ComponentContext, children: Vec<((i32, i32), (f32, f32))>) -> Vec<Option<Box<dyn Event>>> {
         children.into_iter().map(|_| Some(Box::new(*self) as Box<dyn Event>)).collect()
     }
 }

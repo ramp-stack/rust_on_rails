@@ -96,8 +96,8 @@ impl Canvas {
         self.canvas_renderer.prepare(
             &self.device,
             &self.queue,
-            self.config.width,
-            self.config.height,
+            self.config.width as f32,
+            self.config.height as f32,
             atlas, items
         );
     }
@@ -136,11 +136,11 @@ impl Canvas {
         output.present();
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) -> (u32, u32) {
-        if width > 0 && height > 0 {
+    pub fn resize(&mut self, width: f32, height: f32) -> (f32, f32) {
+        if width > 0.0 && height > 0.0 {
             let limits = self.device.limits();
-            self.config.width = min(width, limits.max_texture_dimension_2d);
-            self.config.height = min(height, limits.max_texture_dimension_2d);
+            self.config.width = min(width.ceil() as u32, limits.max_texture_dimension_2d);
+            self.config.height = min(height.ceil() as u32, limits.max_texture_dimension_2d);
             self.surface.configure(&self.device, &self.config);
             if SAMPLE_COUNT > 1 {
                 self.msaa_view = Some(Self::create_msaa_view(&self.device, &self.config));
@@ -148,7 +148,7 @@ impl Canvas {
             self.depth_view = Self::create_depth_view(&self.device, &self.config);
         }
 
-        (self.config.width, self.config.height)
+        (self.config.width as f32, self.config.height as f32)
     }
 
     fn create_msaa_view(device: &Device, config: &SurfaceConfiguration) -> TextureView {

@@ -30,9 +30,9 @@ pub enum MouseState {
     Released
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MouseEvent {
-    pub position: (u32, u32),
+    pub position: (f32, f32),
     pub state: MouseState
 }
 
@@ -53,9 +53,9 @@ pub type WinitWindow = Arc<Window>;
 pub trait WinitAppTrait {
     const LOG_LEVEL: log::Level = log::Level::Error;
 
-    fn new(window: WinitWindow, scheduler: Scheduler, width: u32, height: u32, scale_factor: f64) -> impl std::future::Future<Output = Self> where Self: Sized;
+    fn new(window: WinitWindow, scheduler: Scheduler, width: f32, height: f32, scale_factor: f64) -> impl std::future::Future<Output = Self> where Self: Sized;
     fn on_resumed(&mut self, window: WinitWindow);
-    fn on_resize(&mut self, width: u32, height: u32, scale_factor: f64);
+    fn on_resize(&mut self, width: f32, height: f32, scale_factor: f64);
     fn prepare(&mut self);
     fn render(&mut self);
 
@@ -71,7 +71,7 @@ pub struct WinitApp<A: WinitAppTrait> {
     app_inbox: Option<RunningFuture<A>>,
     runtime: Option<Runtime>,
     task_manager: Option<TaskManager>,
-    mouse: (u32, u32),
+    mouse: (f32, f32),
 }
 
 impl<A: WinitAppTrait + 'static> WinitApp<A> {
@@ -82,7 +82,7 @@ impl<A: WinitAppTrait + 'static> WinitApp<A> {
             app_inbox: None,
             runtime: Some(Runtime::new()),
             task_manager: None,
-            mouse: (0, 0),
+            mouse: (0.0, 0.0),
         }
     }
 
@@ -128,7 +128,7 @@ impl<A: WinitAppTrait + 'static> WinitApp<A> {
 
     fn window(&self) -> Arc<Window> {self.window.clone().unwrap()}
 
-    fn init(&mut self, width: u32, height: u32, scale_factor: f64) {
+    fn init(&mut self, width: f32, height: f32, scale_factor: f64) {
         #[cfg(target_arch="wasm32")]
         {
             web_sys::window()
@@ -145,7 +145,7 @@ impl<A: WinitAppTrait + 'static> WinitApp<A> {
         let (task_manager, scheduler) = TaskManager::new(self.runtime.as_ref().unwrap());
         self.task_manager = Some(task_manager);
         self.app_inbox = Some(self.runtime.as_ref().unwrap().spawn_local(A::new(
-            self.window(), scheduler, width, height, scale_factor
+            self.window(), scheduler, width as f32, height as f32, scale_factor
         )));
     }
 }
@@ -165,9 +165,9 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
         let scale_factor = self.window().scale_factor();
         if let Some(app) = self.app.as_mut() {
             app.on_resumed(self.window.as_ref().unwrap().clone());
-            app.on_resize(size.width, size.height, scale_factor);
+            app.on_resize(size.width as f32, size.height as f32, scale_factor);
         } else {
-            self.init(size.width, size.height, scale_factor)
+            self.init(size.width as f32, size.height as f32, scale_factor)
         }
 
         self.window().request_redraw();
@@ -195,16 +195,16 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                 },
                 WindowEvent::Resized(size) => {
                     let scale_factor = self.window().scale_factor();
-                    self.app.as_mut().unwrap().on_resize(size.width, size.height, scale_factor);
+                    self.app.as_mut().unwrap().on_resize(size.width as f32, size.height as f32, scale_factor);
                     self.window().request_redraw();
                 },
                 WindowEvent::ScaleFactorChanged{scale_factor, ..} => {
                     let size = self.window().inner_size();
-                    self.app.as_mut().unwrap().on_resize(size.width, size.height, scale_factor);
+                    self.app.as_mut().unwrap().on_resize(size.width as f32, size.height as f32, scale_factor);
                     self.window().request_redraw();
                 },
                 WindowEvent::Touch(Touch{location, phase, ..}) => {
-                    self.mouse = (location.x as u32, location.y as u32);
+                    self.mouse = (location.x as f32, location.y as f32);
                     let state = match phase {
                         TouchPhase::Started => MouseState::Pressed,
                         TouchPhase::Moved => MouseState::Moved,
@@ -215,8 +215,8 @@ impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                     self.app.as_mut().unwrap().on_mouse(event);
                 },
                 WindowEvent::CursorMoved{position, ..} => {
-                    if self.mouse != (position.x as u32, position.y as u32) {
-                        self.mouse = (position.x as u32, position.y as u32);
+                    if self.mouse != (position.x as f32, position.y as f32) {
+                        self.mouse = (position.x as f32, position.y as f32);
                         let event = MouseEvent{position: self.mouse, state: MouseState::Moved};
                         self.app.as_mut().unwrap().on_mouse(event);
                     }

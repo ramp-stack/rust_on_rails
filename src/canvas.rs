@@ -29,7 +29,7 @@ impl CanvasContext {
         self.components.push((
             Area((0, 0), None).into_inner(u16::MAX, &self.size),
             CanvasItem::Shape(
-                Shape::Rectangle(0, self.size.logical()),
+                Shape::Rectangle(0.0, self.size.logical()),
                 color
             ).into_inner(&self.size)
         ));
@@ -58,9 +58,9 @@ impl CanvasContext {
 }
 
 pub trait CanvasAppTrait {
-    fn new(ctx: &mut CanvasContext, width: u32, height: u32) -> impl std::future::Future<Output = Self> where Self: Sized;
+    fn new(ctx: &mut CanvasContext, width: f32, height: f32) -> impl std::future::Future<Output = Self> where Self: Sized;
 
-    fn on_resize(&mut self, ctx: &mut CanvasContext, width: u32, height: u32);
+    fn on_resize(&mut self, ctx: &mut CanvasContext, width: f32, height: f32);
     fn on_tick(&mut self, ctx: &mut CanvasContext);
     fn on_mouse(&mut self, ctx: &mut CanvasContext, event: MouseEvent);
     fn on_keyboard(&mut self, ctx: &mut CanvasContext, event: KeyboardEvent);
@@ -105,9 +105,9 @@ pub struct CanvasApp<A: CanvasAppTrait> {
 //  }
 
 impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
-    async fn new(window: WinitWindow, scheduler: Scheduler, width: u32, height: u32, scale_factor: f64) -> Self {
+    async fn new(window: WinitWindow, scheduler: Scheduler, width: f32, height: f32, scale_factor: f64) -> Self {
         let mut canvas = Canvas::new(window).await;
-        let (width, height) = canvas.resize(width, height);
+        let (width, height) = canvas.resize(width as f32, height as f32);
 
         // #[cfg(any(target_os = "macos", target_os = "ios"))]
         // let path = if let Some(new_path) = get_app_support_path() {
@@ -122,11 +122,11 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
             components: Vec::new(),
             scheduler,
             atlas: CanvasAtlas::default(),
-            size: Size::new(width, height, scale_factor),
+            size: Size::new(width as f32, height as f32, scale_factor),
             state: State::default(),
             triggered_keyboard: Vec::new()
         };
-        let app = A::new(&mut context, width, height).await;
+        let app = A::new(&mut context, width as f32, height as f32).await;
 
         CanvasApp{
             context,
@@ -140,10 +140,10 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
         self.canvas.resumed(window);
     }
 
-    fn on_resize(&mut self, width: u32, height: u32, scale_factor: f64) {
+    fn on_resize(&mut self, width: f32, height: f32, scale_factor: f64) {
         let (width, height) = self.canvas.resize(width, height);
-        let size = Size::new(width, height, scale_factor);
-        self.app.on_resize(&mut self.context, size.logical().0, size.logical().1);
+        let size = Size::new(width as f32, height as f32, scale_factor);
+        self.app.on_resize(&mut self.context, size.logical().0 as f32, size.logical().1 as f32);
         self.context.size = size;
     }
 
@@ -172,8 +172,8 @@ impl<A: CanvasAppTrait> WinitAppTrait for CanvasApp<A> {
 
     fn on_mouse(&mut self, mut event: MouseEvent) {
         event.position = (
-            self.context.size.scale_logical(event.position.0),
-            self.context.size.scale_logical(event.position.1)
+            self.context.size.scale_logical(event.position.0 as f32),
+            self.context.size.scale_logical(event.position.1 as f32)
         );
         self.app.on_mouse(&mut self.context, event)
     }
