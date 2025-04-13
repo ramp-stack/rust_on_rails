@@ -1,6 +1,5 @@
-use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue};
+use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, WindowHandle, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue};
 
-use crate::winit::WinitWindow;
 use wgpu_canvas::{CanvasRenderer, CanvasAtlas, CanvasItem, Area};
 
 use std::cmp::min;
@@ -19,7 +18,7 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    pub async fn new(window: WinitWindow) -> Self {
+    pub async fn new(window: impl WindowHandle + 'static) -> Self {
         let instance = Instance::new(&InstanceDescriptor::default());
 
         let surface = instance.create_surface(window).unwrap();
@@ -88,7 +87,7 @@ impl Canvas {
         }
     }
 
-    pub fn resumed(&mut self, window: WinitWindow) {
+    pub fn resume(&mut self, window: impl WindowHandle + 'static) {
         self.surface = self.instance.create_surface(window).unwrap();
     }
 
@@ -136,11 +135,11 @@ impl Canvas {
         output.present();
     }
 
-    pub fn resize(&mut self, width: f32, height: f32) -> (f32, f32) {
-        if width > 0.0 && height > 0.0 {
+    pub fn resize(&mut self, width: u32, height: u32) -> (u32, u32) {
+        if width > 0 && height > 0 {
             let limits = self.device.limits();
-            self.config.width = min(width.ceil() as u32, limits.max_texture_dimension_2d);
-            self.config.height = min(height.ceil() as u32, limits.max_texture_dimension_2d);
+            self.config.width = min(width, limits.max_texture_dimension_2d);
+            self.config.height = min(height, limits.max_texture_dimension_2d);
             self.surface.configure(&self.device, &self.config);
             if SAMPLE_COUNT > 1 {
                 self.msaa_view = Some(Self::create_msaa_view(&self.device, &self.config));
@@ -148,7 +147,7 @@ impl Canvas {
             self.depth_view = Self::create_depth_view(&self.device, &self.config);
         }
 
-        (self.config.width as f32, self.config.height as f32)
+        (self.config.width, self.config.height)
     }
 
     fn create_msaa_view(device: &Device, config: &SurfaceConfiguration) -> TextureView {

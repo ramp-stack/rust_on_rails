@@ -1,8 +1,8 @@
 use crate::canvas;
 use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem};
-pub use crate::state::{State, Field};
+pub use crate::base::{State, Field, AsyncTasks};
 
-use crate::winit::Callback;
+use crate::base::Callback;
 
 use include_dir::{DirEntry, Dir};
 
@@ -24,36 +24,26 @@ pub use events::{
 mod sizing;
 pub use sizing::{Layout, SizeRequest, Area};
 
+mod drawable;
+pub use drawable::*;
+
 pub use canvas::Color;
-
-#[derive(Default, Debug, Clone)]
-pub struct RequestBranch(pub SizeRequest, Vec<RequestBranch>);
-
-#[derive(Default, Debug, Clone)]
-pub struct SizedBranch(pub Size, Vec<(Offset, SizedBranch)>);
-
-type Offset = (f32, f32);
-type Rect = (f32, f32, f32, f32);
-type Size = (f32, f32);
-
-//type TaskResult = Box<dyn Future<Output = Option<Duration>> + Unpin> ;
-// type Task = Box<dyn FnMut(&mut ComponentContext) -> Option<Duration>>;
 
 pub trait Plugin {}
 
-pub struct ComponentContext<'a> {
+pub struct ComponentContext<'a, 'b> {
     plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
     assets: &'a mut Vec<Dir<'static>>,
     events: &'a mut Vec<Box<dyn Event>>,
-    canvas: &'a mut CanvasContext,
+    canvas: &'a mut CanvasContext<'b>,
 }
 
-impl<'a> ComponentContext<'a> {
+impl<'a, 'b> ComponentContext<'a, 'b> {
     pub fn new(
         plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
         assets: &'a mut Vec<Dir<'static>>,
         events: &'a mut Vec<Box<dyn Event>>,
-        canvas: &'a mut CanvasContext,
+        canvas: &'a mut CanvasContext<'b>,
     ) -> Self {
         ComponentContext{plugins, assets, canvas, events}
     }
@@ -64,15 +54,6 @@ impl<'a> ComponentContext<'a> {
 
     pub fn trigger_event(&mut self, event: impl Event) {
         self.events.push(Box::new(event));
-    }
-
-    pub fn schedule_task<
-        F: Fn() -> Fut + Send + 'static,
-        Fut: Future<Output = (Option<Duration>, Callback)> + 'static + Send
-    >(
-        &self, duration: Duration, task: F
-    ) {
-        self.canvas.schedule_task(duration, task);
     }
 
     pub fn get<P: Plugin + 'static>(&mut self) -> &mut P {
@@ -99,6 +80,7 @@ impl<'a> ComponentContext<'a> {
 }
 
 pub trait ComponentAppTrait {
+    fn register_tasks() -> impl Future<Output = AsyncTasks> where Self: Sized;
     fn root(ctx: &mut ComponentContext) -> impl std::future::Future<Output = Box<dyn Drawable>> where Self: Sized;
 }
 
@@ -113,7 +95,8 @@ pub struct ComponentApp<A: ComponentAppTrait> {
 }
 
 impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
-    async fn new(ctx: &mut CanvasContext, width: f32, height: f32) -> Self {
+    async fn register_tasks() -> AsyncTasks {A::register_tasks().await}
+    async fn new<'a>(ctx: &'a mut CanvasContext<'a>, width: f32, height: f32) -> Self {
         let mut plugins = HashMap::new();
         let mut assets = Vec::new();
         let mut events = Vec::new();
@@ -124,184 +107,42 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         ComponentApp{plugins, assets, app, screen: (width, height), sized_app, events: Vec::new(), _p: std::marker::PhantomData::<A>}
     }
 
-    fn on_resize(&mut self, _ctx: &mut CanvasContext, width: f32, height: f32) {
-        self.screen = (width, height);
-    }
+    fn on_event<'a>(&'a mut self, ctx: &'a mut CanvasContext<'a>, event: canvas::WindowEvent) {
+        match event {
+            canvas::WindowEvent::Resize{width, height} |
+            canvas::WindowEvent::Resume{width, height} => {
+                self.screen = (width, height);
+            },
+            canvas::WindowEvent::Mouse{position, state} => {
+                self.events.push(Box::new(MouseEvent{position: Some(position), state}));
+            },
+            canvas::WindowEvent::Keyboard{key, state} => {
+                self.events.push(Box::new(KeyboardEvent{key, state}));
+            },
+            canvas::WindowEvent::Tick => {
+                let events = self.events.drain(..).collect::<Vec<_>>();//Events triggered on this tick will be run on the next tick
+                let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, &mut self.events, ctx);
+                self.app.event(&mut ctx, self.sized_app.clone(), Box::new(TickEvent));
+                events.into_iter().for_each(|event|
+                    if let Some(event) = event.pass(&mut ctx, vec![((0.0, 0.0), self.sized_app.0)]).remove(0) {
+                        self.app.event(&mut ctx, self.sized_app.clone(), event)
+                    }
+                );
 
-    fn on_tick(&mut self, ctx: &mut CanvasContext) {
-        let events = self.events.drain(..).collect::<Vec<_>>();//Events triggered on this tick will be run on the next tick
-        let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, &mut self.events, ctx);
-        self.app.event(&mut ctx, self.sized_app.clone(), Box::new(TickEvent));
-        events.into_iter().for_each(|event|
-            if let Some(event) = event.pass(&mut ctx, vec![((0.0, 0.0), self.sized_app.0)]).remove(0) {
-                self.app.event(&mut ctx, self.sized_app.clone(), event)
-            }
-        );
-
-        let size_request = _Drawable::request_size(&*self.app, &mut ctx);
-        self.sized_app = self.app.build(&mut ctx, self.screen, size_request);
-        self.app.draw(&mut ctx, self.sized_app.clone(), (0.0, 0.0), (0.0, 0.0, self.screen.0, self.screen.1));
-    }
-
-    fn on_mouse(&mut self, _ctx: &mut CanvasContext, event: canvas::MouseEvent) {
-        self.events.push(Box::new(MouseEvent{position: Some(event.position), state: event.state}));
-    }
-
-    fn on_keyboard(&mut self, _ctx: &mut CanvasContext, event: KeyboardEvent) {
-        self.events.push(Box::new(event));
+                let size_request = _Drawable::request_size(&*self.app, &mut ctx);
+                self.sized_app = self.app.build(&mut ctx, self.screen, size_request);
+                self.app.draw(&mut ctx, self.sized_app.clone(), (0.0, 0.0), (0.0, 0.0, self.screen.0, self.screen.1));
+            },
+            _ => {}
+        }
     }
 }
 
 #[macro_export]
 macro_rules! create_component_entry_points {
-    ($app:ty) => {
-        create_canvas_entry_points!(ComponentApp::<$app>);
+    ($app:ty, $bg_app:ty) => {
+        create_canvas_entry_points!(ComponentApp::<$app>, $bg_app);
     };
 }
 
-#[allow(private_bounds)]
-pub trait Drawable: _Drawable + Debug {
-    fn request_size(&self, ctx: &mut ComponentContext) -> SizeRequest;
-    fn name(&self) -> String;
-}
-impl<D: _Drawable + ?Sized> Drawable for D {
-    fn request_size(&self, ctx: &mut ComponentContext) -> SizeRequest {_Drawable::request_size(self, ctx).0}
-    fn name(&self) -> String {_Drawable::name(self)}
-}
 
-trait _Drawable: Debug {
-    fn request_size(&self, ctx: &mut ComponentContext) -> RequestBranch;
-    fn build(&mut self, _ctx: &mut ComponentContext, size: Size, request: RequestBranch) -> SizedBranch {
-        SizedBranch(request.0.get(size), vec![])
-    }
-    fn draw(&mut self, ctx: &mut ComponentContext, sized: SizedBranch, offset: Offset, bound: Rect);
-
-    fn name(&self) -> String {std::any::type_name_of_val(self).to_string()}
-
-    fn event(&mut self, _ctx: &mut ComponentContext, _sized: SizedBranch, _event: Box<dyn Event>) {}
-}
-
-#[derive(Clone, Debug)]
-pub struct Text{
-    pub text: String,
-    pub color: Color,
-    pub max_width: Option<f32>,
-    pub font_size: f32,
-    pub line_height: f32,
-    pub font: Font
-}
-
-impl Text {
-    pub fn new(text: &str, color: Color, max_width: Option<f32>, font_size: f32, line_height: f32, font: Font) -> Self {
-        Text{text: text.to_string(), color, max_width, font_size, line_height, font}
-    }
-
-    fn into_inner(self) -> canvas::Text {
-        canvas::Text{text: self.text, color: self.color, width: self.max_width, size: self.font_size, line_height: self.line_height, font: self.font.clone().into_inner()}
-    }
-}
-
-impl _Drawable for Text {
-    fn request_size(&self, ctx: &mut ComponentContext) -> RequestBranch {
-        RequestBranch(SizeRequest::fixed(self.clone().into_inner().size(ctx.canvas)), vec![])
-    }
-
-    fn draw(&mut self, ctx: &mut ComponentContext, _sized: SizedBranch, offset: Offset, bound: Rect) {
-        ctx.canvas.draw(canvas::Area(offset, Some(bound)), CanvasItem::Text(self.clone().into_inner()))
-    }
-
-    fn event(&mut self, _ctx: &mut ComponentContext, _sized: SizedBranch, _event: Box<dyn Event>) {
-        // if let Ok(event) = event.downcast::<MouseEvent>() {
-        //     if event.state == MouseState::Pressed && event.position.is_some() {
-        //         if self.color.0 > 0 && self.color.1 == 0 {self.color = Color(0, 255, 0, 255)}
-        //         else if self.color.0 > 0 && self.color.1 > 0 {self.color = Color(255, 0, 0, 255)}
-        //         else if self.color.1 > 0 {self.color = Color(0, 0, 255, 255)}
-        //         else if self.color.2 > 0 {self.color = Color(255, 255, 255, 255)}
-        //     }
-        // }
-    }
-}
-
-pub use canvas::Shape as ShapeType;
-
-#[derive(Clone, Copy, Debug)]
-pub struct Shape {
-    pub shape: ShapeType,
-    pub color: Color
-}
-impl _Drawable for Shape {
-    fn request_size(&self, _ctx: &mut ComponentContext) -> RequestBranch {RequestBranch(SizeRequest::fixed(self.shape.size()), vec![])}
-
-    fn draw(&mut self, ctx: &mut ComponentContext, _sized: SizedBranch, offset: Offset, bound: Rect) {//TODO: use sized.0 as the size of the shape?
-        ctx.canvas.draw(canvas::Area(offset, Some(bound)), CanvasItem::Shape(self.shape, self.color))
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Image {
-    pub shape: ShapeType,
-    pub image: resources::Image,
-    pub color: Option<Color>
-}
-
-impl _Drawable for Image {
-    fn request_size(&self, _ctx: &mut ComponentContext) -> RequestBranch {RequestBranch(SizeRequest::fixed(self.shape.size()), vec![])}
-
-    fn draw(&mut self, ctx: &mut ComponentContext, _sized: SizedBranch, offset: Offset, bound: Rect) {
-        ctx.canvas.draw(canvas::Area(offset, Some(bound)), CanvasItem::Image(self.shape, self.image.clone().into_inner(), self.color))
-    }
-}
-
-pub trait Component: Debug {
-    fn children_mut(&mut self) -> Vec<&mut dyn Drawable>;
-    fn children(&self) -> Vec<&dyn Drawable>;
-
-    fn request_size(&self, ctx: &mut ComponentContext, children: Vec<SizeRequest>) -> SizeRequest;
-    fn build(&mut self, ctx: &mut ComponentContext, size: Size, children: Vec<SizeRequest>) -> Vec<Area>;
-}
-
-impl<C: Component + ?Sized + 'static + Events> _Drawable for C {
-    fn request_size(&self, ctx: &mut ComponentContext) -> RequestBranch {
-        let requests = self.children().into_iter().map(|i| _Drawable::request_size(i, ctx)).collect::<Vec<_>>();
-        let info = requests.iter().map(|i| i.0).collect::<Vec<_>>();
-        RequestBranch(Component::request_size(self, ctx, info), requests)
-    }
-
-    fn build(&mut self, ctx: &mut ComponentContext, size: Size, request: RequestBranch) -> SizedBranch {
-        let size = request.0.get(size);
-        let children = request.1.iter().map(|b| b.0).collect::<Vec<_>>();
-        SizedBranch(
-            size,
-            Component::build(self, ctx, size, children).into_iter()
-            .zip(self.children_mut()).zip(request.1)
-            .map(|((Area{offset, size}, child), branch)| {
-                (offset, child.build(ctx, size, branch))
-            }).collect()
-        )
-    }
-
-    fn draw(&mut self, ctx: &mut ComponentContext, sized: SizedBranch, poffset: Offset, bound: Rect) {
-        sized.1.into_iter().zip(self.children_mut()).for_each(|((offset, branch), child)| {
-            let size = branch.0;
-            let poffset = (poffset.0+offset.0, poffset.1+offset.1);
-
-            let bound = (
-                bound.0.max(poffset.0), bound.1.max(poffset.1),//New bound offset
-                bound.2.min((offset.0 + size.0).max(0.0)), bound.3.min((offset.1 + size.1).max(0.0))//New bound size
-            );
-
-            if bound.2 != 0.0 && bound.3 != 0.0 {
-                child.draw(ctx, branch, poffset, bound);
-            }
-        })
-    }
-
-    fn event(&mut self, ctx: &mut ComponentContext, sized: SizedBranch, mut event: Box<dyn Event>) {
-        if Events::on_event(self, ctx, &mut *event) {
-            let children = sized.1.iter().map(|(o, branch)| (*o, branch.0)).collect::<Vec<_>>();
-            event.pass(ctx, children).into_iter().zip(self.children_mut()).zip(sized.1).for_each(
-                |((e, child), branch)| if let Some(e) = e {child.event(ctx, branch.1, e);}
-            );
-        }
-    }
-}
