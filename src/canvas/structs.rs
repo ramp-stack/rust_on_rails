@@ -20,8 +20,8 @@ impl Size {
         (x as f64 / self.scale_factor) as f32
     }
 
-    pub fn dscale_physical(&self, x: i32) -> i32 {
-        (x as f64 * self.scale_factor).round() as i32
+    pub fn dscale_physical(&self, x: f32) -> f32 {
+        (x as f64 * self.scale_factor) as f32
     }
 
   //pub fn dscale_logical(&self, x: i32) -> i32 {
@@ -53,7 +53,7 @@ impl Color {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Area(pub (i32, i32), pub Option<(i32, i32, f32, f32)>);
+pub struct Area(pub (f32, f32), pub Option<(f32, f32, f32, f32)>);
 
 impl Area {
     pub(crate) fn into_inner(self, z_index: u16, size: &Size) -> wgpu_canvas::Area {
@@ -61,7 +61,7 @@ impl Area {
         let bounds = self.1.map(|(x, y, w, h)| {
             (size.dscale_physical(x), size.dscale_physical(y),
              size.scale_physical(w), size.scale_physical(h))
-        }).unwrap_or((0, 0, psize.0, psize.1));
+        }).unwrap_or((0.0, 0.0, psize.0, psize.1));
         wgpu_canvas::Area{
             z_index,
             bounds,

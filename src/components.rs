@@ -7,7 +7,7 @@ use crate::winit::Callback;
 use include_dir::{DirEntry, Dir};
 
 use std::collections::HashMap;
-use std::time::{Instant, Duration};
+use std::time::Duration;
 use std::future::Future;
 use std::any::TypeId;
 use std::fmt::Debug;
@@ -32,12 +32,12 @@ pub struct RequestBranch(pub SizeRequest, Vec<RequestBranch>);
 #[derive(Default, Debug, Clone)]
 pub struct SizedBranch(pub Size, Vec<(Offset, SizedBranch)>);
 
-type Offset = (i32, i32);
-type Rect = (i32, i32, f32, f32);
+type Offset = (f32, f32);
+type Rect = (f32, f32, f32, f32);
 type Size = (f32, f32);
 
 //type TaskResult = Box<dyn Future<Output = Option<Duration>> + Unpin> ;
-type Task = Box<dyn FnMut(&mut ComponentContext) -> Option<Duration>>;
+// type Task = Box<dyn FnMut(&mut ComponentContext) -> Option<Duration>>;
 
 pub trait Plugin {}
 
@@ -120,12 +120,12 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let mut ctx = ComponentContext::new(&mut plugins, &mut assets, &mut events, ctx);
         let mut app = A::root(&mut ctx).await;
         let size_request = _Drawable::request_size(&*app, &mut ctx);
-        let sized_app = app.build(&mut ctx, (width as f32, height as f32), size_request);
-        ComponentApp{plugins, assets, app, screen: (width as f32, height as f32), sized_app, events: Vec::new(), _p: std::marker::PhantomData::<A>}
+        let sized_app = app.build(&mut ctx, (width, height), size_request);
+        ComponentApp{plugins, assets, app, screen: (width, height), sized_app, events: Vec::new(), _p: std::marker::PhantomData::<A>}
     }
 
     fn on_resize(&mut self, _ctx: &mut CanvasContext, width: f32, height: f32) {
-        self.screen = (width as f32, height as f32);
+        self.screen = (width, height);
     }
 
     fn on_tick(&mut self, ctx: &mut CanvasContext) {
@@ -133,14 +133,14 @@ impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
         let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, &mut self.events, ctx);
         self.app.event(&mut ctx, self.sized_app.clone(), Box::new(TickEvent));
         events.into_iter().for_each(|event|
-            if let Some(event) = event.pass(&mut ctx, vec![((0, 0), self.sized_app.0)]).remove(0) {
+            if let Some(event) = event.pass(&mut ctx, vec![((0.0, 0.0), self.sized_app.0)]).remove(0) {
                 self.app.event(&mut ctx, self.sized_app.clone(), event)
             }
         );
 
         let size_request = _Drawable::request_size(&*self.app, &mut ctx);
         self.sized_app = self.app.build(&mut ctx, self.screen, size_request);
-        self.app.draw(&mut ctx, self.sized_app.clone(), (0, 0), (0, 0, self.screen.0, self.screen.1));
+        self.app.draw(&mut ctx, self.sized_app.clone(), (0.0, 0.0), (0.0, 0.0, self.screen.0, self.screen.1));
     }
 
     fn on_mouse(&mut self, _ctx: &mut CanvasContext, event: canvas::MouseEvent) {
@@ -287,7 +287,7 @@ impl<C: Component + ?Sized + 'static + Events> _Drawable for C {
 
             let bound = (
                 bound.0.max(poffset.0), bound.1.max(poffset.1),//New bound offset
-                bound.2.min((offset.0 + size.0 as i32).max(0) as f32), bound.3.min((offset.1 + size.1 as i32).max(0) as f32)//New bound size
+                bound.2.min((offset.0 + size.0).max(0.0)), bound.3.min((offset.1 + size.1).max(0.0))//New bound size
             );
 
             if bound.2 != 0.0 && bound.3 != 0.0 {

@@ -1,6 +1,5 @@
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::event::{ElementState, WindowEvent, KeyEvent, TouchPhase, Touch};
-use winit::keyboard::{PhysicalKey, KeyCode};
+use winit::event::{ElementState, WindowEvent, TouchPhase, Touch};
 use winit::application::ApplicationHandler;
 use winit::window::{Window, WindowId};
 
@@ -12,13 +11,10 @@ pub use winit::platform::android::activity::AndroidApp;
 #[cfg(target_arch="wasm32")]
 use winit::platform::web::{WindowExtWebSys, EventLoopExtWebSys};
 
-use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 use std::sync::Arc;
 
 pub use winit::keyboard::{NamedKey, Key, SmolStr};
-
-use crate::State;
 
 mod tasks;
 pub use tasks::{Runtime, RunningFuture, TaskManager, Scheduler, Callback};
@@ -145,7 +141,7 @@ impl<A: WinitAppTrait + 'static> WinitApp<A> {
         let (task_manager, scheduler) = TaskManager::new(self.runtime.as_ref().unwrap());
         self.task_manager = Some(task_manager);
         self.app_inbox = Some(self.runtime.as_ref().unwrap().spawn_local(A::new(
-            self.window(), scheduler, width as f32, height as f32, scale_factor
+            self.window(), scheduler, width, height, scale_factor
         )));
     }
 }

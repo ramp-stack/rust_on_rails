@@ -2,7 +2,7 @@ use super::ComponentContext;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Area {
-    pub offset: (i32, i32),
+    pub offset: (f32, f32),
     pub size: (f32, f32)
 }
 
