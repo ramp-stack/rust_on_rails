@@ -1,13 +1,10 @@
 use std::future::Future;
 use std::sync::Arc;
 
-pub use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
+use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 
 mod logger;
 pub use logger::Logger;
-
-mod events;
-pub use events::*;
 
 mod state;
 pub use state::{State, Field};
@@ -16,69 +13,82 @@ mod cache;
 pub use cache::Cache;
 
 mod tasks;
-pub use tasks::{Scheduler, Thread};
+pub use tasks::*;
 
-mod app;
-pub use app::{BaseBackgroundApp, BaseApp};
 
-mod winit;
-pub use winit::*;
+pub trait WindowHandle: HasWindowHandle + HasDisplayHandle + Send + Sync + 'static {}
+impl<W: HasWindowHandle + HasDisplayHandle + Send + Sync + 'static> WindowHandle for W {}
 
-pub type Callback = Box<dyn FnOnce(&mut State) + Send>;
+pub struct AsyncContext {
+    pub cache: Cache,
+}
 
-pub trait BaseBackgroundAppTrait {
+pub trait BackgroundApp: Send {
     const LOG_LEVEL: log::Level;
 
-    fn new(ctx: &mut BaseAsyncContext) -> impl Future<Output = Self> where Self: Sized;
+    fn new(ctx: &mut AsyncContext) -> impl Future<Output = Self> where Self: Sized;
 
-    fn on_tick(&mut self, ctx: &mut BaseAsyncContext) -> impl Future<Output = ()>;
+    fn register_tasks(&mut self, ctx: &mut AsyncContext) -> impl Future<Output = BackgroundTasks<Self>> where Self: Sized;
+}
+
+pub struct BaseContext {
+    pub state: State,
+}
+
+impl BaseContext {
+    //TODO: pub fn open_camera(...)
 }
 
 pub trait BaseAppTrait {
     const LOG_LEVEL: log::Level;
 
-    ///Triggered on app start up
-    fn new(ctx: &mut BaseContext) -> impl Future<Output = Self> where Self: Sized;
+    fn register_tasks() -> impl Future<Output = AsyncTasks>;
 
-    ///Triggered whenever the app returns from background
-    fn on_resume<W: HasWindowHandle + HasDisplayHandle>(
+    fn new<W: WindowHandle>(
+        ctx: &mut BaseContext, window: Arc<W>, width: u32, height: u32, scale_factor: f64
+    ) -> impl Future<Output = Self> where Self: Sized;
+
+    fn on_resume<W: WindowHandle>(
         &mut self, ctx: &mut BaseContext, window: Arc<W>, width: u32, height: u32, scale_factor: f64
     ) -> impl Future<Output = ()>;
 
-    ///Triggered after every tick that the app is active
-    ///WASM: Will be triggered after each tick
-    ///Other: Will be triggered on a different thread to prevent frame hangs
-    fn on_async_tick(ctx: &mut BaseAsyncContext) -> impl Future<Output = Callback> + Send;
-
-    ///Triggered every tick that the app is resumed
-    fn on_tick(&mut self, ctx: &mut BaseContext);
-    ///Triggered whenever the app is sent to the background
-    fn on_pause(&mut self, ctx: &mut BaseContext);
-  /////Triggered every tick that the app is paused
-  //fn on_paused_tick(&mut self, ctx: &mut BaseContext);
-    ///Triggered whenever the app is closed
-    fn on_close(self, ctx: &mut BaseContext);
-    ///Triggered on window events
-    fn on_event(&mut self, ctx: &mut BaseContext, event: Event);
+    fn on_event(&mut self, ctx: &mut BaseContext, event: WindowEvent);
 }
 
-pub struct BaseContext {
-    name: String,
-    pub state: State,
-    pub scheduler: Scheduler<Callback>
+mod app;
+pub use app::{_BackgroundApp, BaseApp};
+
+//TODO: Replace winit structures with custom structs
+pub use winit_crate::keyboard::{NamedKey, SmolStr, Key};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum WindowEvent {
+    Resize{width: u32, height: u32, scale_factor: f64},
+    Mouse{position: (u32, u32), state: MouseState},
+    Keyboard{key: Key, state: KeyboardState},
+    Pause,
+    Close,
+    Tick
 }
 
-impl BaseContext {
-    pub fn pkg_name(&self) -> &String {&self.name}
-    //TODO: pub fn open_camera(...)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MouseState {
+    Pressed,
+    Moved,
+    Released
 }
 
-pub struct BaseAsyncContext {
-    pub cache: Cache,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyboardState {
+    Pressed,
+    Released
 }
 
-impl BaseAsyncContext {
-    pub fn new(name: &str) -> BaseAsyncContext {
-        BaseAsyncContext{cache: Cache::new(name)}
-    }
+#[macro_export]
+macro_rules! create_base_entry_points {
+    ($app:ty, $bg_app:ty) => {
+        pub type BackgroundTasks = Vec<(std::time::Duration, BackgroundTask<$bg_app>)>;
+
+        create_app_entry_points!($app, $bg_app);
+    };
 }

@@ -1,78 +1,98 @@
 use std::time::{Instant, Duration};
 
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::mpsc::TryRecvError;
+use std::sync::mpsc::{SendError, TryRecvError};
 
 use std::future::Future;
+use std::pin::Pin;
 
-pub type BFuture<T> = std::pin::Pin<Box<dyn Future<Output = (Option<Duration>, T)> + Send>>;
-pub type Function<T> = Box<dyn FnMut() -> BFuture<T> + Send>;
+use super::{AsyncContext, State};
 
-#[derive(Clone, Debug)]
-pub struct Scheduler<T>(Sender<(Duration, Function<T>)>);
-impl<T> Scheduler<T> {
-    pub fn schedule_task<
-        Fut: Future<Output = (Option<Duration>, T)> + 'static + Send
-    >(&self, duration: Duration, mut task: impl FnMut() -> Fut + Send + 'static) {
-        self.0.send(
-            (duration, Box::new(move || Box::pin(task()) as BFuture<T>) as Function<T>)
-        ).unwrap();
-    }
+pub type Callback = Box<dyn FnOnce(&mut State) + Send>;
+type BoxFuture<'a, R> = Pin<Box<dyn Future<Output = R> + Send + 'a>>;
+type BoxFunction<P, R> = Box<dyn for<'a> FnMut(&'a mut P) -> BoxFuture<'a, R> + Send>;
+pub type AsyncTask = BoxFunction<AsyncContext, Callback>;
+pub type AsyncTasks = Vec<(Duration, AsyncTask)>;
+pub type BackgroundTask<BA> = BoxFunction<(BA, AsyncContext), ()>;
+pub(crate) type BackgroundTasks<BA> = Vec<(std::time::Duration, BackgroundTask<BA>)>;
+
+pub struct ThreadHandle<R: Send + 'static> {
+    results: Receiver<R>,
+    status_s: Sender<u8>,
 }
 
-pub struct Thread<T: Send + 'static>(Receiver<T>, Sender<u8>);
-impl<T: Send + 'static> Thread<T> {
-    pub fn new(runtime: &tokio::runtime::Runtime) -> (Self, Scheduler<T>) {
-        let (c_sender, results) = std::sync::mpsc::channel();
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let (s_sender, s_receiver) = std::sync::mpsc::channel();
-        runtime.spawn(Self::async_loop(receiver, s_receiver, c_sender));
+impl<R: Send + 'static> ThreadHandle<R> {
+    pub fn results(&self) -> Vec<R> {self.results.try_iter().collect()}
+
+    pub fn resume(&self) {self.status_s.send(0).unwrap();}
+    pub fn pause(&self) {self.status_s.send(1).unwrap();}
+    pub fn close(self) {self.status_s.send(2).unwrap();}
+}
+
+pub struct Thread<P, R: Send + 'static> {
+    param: P,
+    status_r: Receiver<u8>,
+    result_s: Sender<R>,
+    tasks: Vec<(Instant, Duration, BoxFunction<P, R>)>,
+}
+
+impl<P, R: Send + 'static> Thread<P, R> {
+    pub fn new(param: P, tasks: Vec<(Duration, BoxFunction<P, R>)>) -> (Self, ThreadHandle<R>) {
+        let (result_s, results) = std::sync::mpsc::channel();
+        let (status_s, status_r) = std::sync::mpsc::channel();
         (
-            Thread(results, s_sender),
-            Scheduler(sender)
+            Thread{
+                param, status_r, result_s,
+                tasks: tasks.into_iter().map(|(d, f)|(Instant::now(), d, f)).collect()
+            },
+            ThreadHandle{results, status_s}
         )
     }
 
-    pub fn results(&self) -> Vec<T> {self.0.try_iter().collect()}
+    pub async fn async_tick(&mut self) -> Result<(), SendError<R>> {
+        for (last_run, duration, task) in &mut self.tasks {
+            if last_run.elapsed() > *duration {
+                *last_run = Instant::now();
+                self.result_s.send(task(&mut self.param).await)?;
+            }
+        }
+        Ok(())
+    }
 
-    pub fn resume(&self) {self.1.send(0).unwrap();}
-    pub fn pause(&self) {self.1.send(1).unwrap();}
-    pub fn close(self) {self.1.send(2).unwrap();}
-
-    async fn async_loop(rc: Receiver<(Duration, Function<T>)>, src: Receiver<u8>, tx: Sender<T>) {
-        let time = Instant::now();
-        let mut tasks = Vec::new();
+    pub async fn async_loop(mut self) {
         let mut paused = false;
         loop {
             if paused {
-                match src.recv() {
+                match self.status_r.recv() {
                     Ok(0) => paused = false,
                     Ok(1) => {},
                     _ => return,
                 };
             } else {
-                match src.try_recv() {
+                match self.status_r.try_recv() {
                     Ok(0) => {},
                     Ok(1) => paused = false,
-                    Err(TryRecvError::Empty) => {
-                        while let Ok((duration, function)) = rc.try_recv() {
-                            tasks.push((time.elapsed()+duration, function));
-                        }
-                        for (duration, mut function) in std::mem::take(&mut tasks) {
-                            if duration < time.elapsed() {
-                                let (duration, result) = function().await;
-                                if tx.send(result).is_err() {return;};
-                                if let Some(duration) = duration {
-                                    tasks.push((time.elapsed()+duration, function));
-                                }
-                            } else {
-                                tasks.push((duration, function));
-                            }
-                        }
-                    },
+                    Err(TryRecvError::Empty) if self.async_tick().await.is_ok() => {},
                     _ => return
                 }
             }
+            std::thread::sleep(Duration::from_millis(100))
         }
     }
+}
+
+#[macro_export]
+macro_rules! async_task {
+    ($dur:expr, $task:expr) => {{
+        let task: AsyncTask = Box::new(|p: &mut AsyncContext| Box::pin($task(p)));
+        ($dur, task)
+    }};
+}
+
+#[macro_export]
+macro_rules! background_task {
+    ($dur:expr, $task:expr) => {{
+        let task: BackgroundTask<Self> = Box::new(|p: &mut (Self, AsyncContext)| Box::pin($task(&mut p.0, &mut p.1)));
+        ($dur, task)
+    }};
 }

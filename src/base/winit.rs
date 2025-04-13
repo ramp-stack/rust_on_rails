@@ -1,3 +1,5 @@
+use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
+
 use winit_crate::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit_crate::event::{ElementState, WindowEvent, TouchPhase, Touch};
 use winit_crate::application::ApplicationHandler;
@@ -12,16 +14,26 @@ pub use winit_crate::platform::android::activity::AndroidApp;
 use winit_crate::platform::web::{WindowExtWebSys, EventLoopExtWebSys};
 
 use std::sync::Arc;
-use crate::base::*;
 
-pub struct WinitApp<A: BaseAppTrait + 'static> {
-    window: Option<Arc<Window>>,
-    mouse: (u32, u32),
-    app: Option<BaseApp<A>>,
+pub trait WinitAppTrait {
+    fn on_resume<W: HasWindowHandle + HasDisplayHandle>(
+        &mut self, window: Arc<W>, width: u32, height: u32, scale_factor: f64
+    );
+
+    fn on_tick(&mut self);
+    fn on_pause(&mut self);
+    fn on_close(self);
+    fn on_event(&mut self, event: Event);
 }
 
-impl<A: BaseAppTrait + 'static> WinitApp<A> {
-    pub fn new(app: BaseApp<A>) -> Self {
+pub struct WinitApp<A: WinitAppTrait + 'static> {
+    window: Option<Arc<Window>>,
+    mouse: (u32, u32),
+    app: Option<A>,
+}
+
+impl<A: WinitAppTrait + 'static> WinitApp<A> {
+    pub fn new(app: A) -> Self {
         WinitApp{
             window: None,
             mouse: (0, 0),
@@ -49,10 +61,10 @@ impl<A: BaseAppTrait + 'static> WinitApp<A> {
     }
 
     fn window(&self) -> Arc<Window> {self.window.clone().unwrap()}
-    fn app(&mut self) -> &mut BaseApp<A> {self.app.as_mut().unwrap()}
+    fn app(&mut self) -> &mut A {self.app.as_mut().unwrap()}
 }
 
-impl<A: BaseAppTrait + 'static> ApplicationHandler for WinitApp<A> {
+impl<A: WinitAppTrait + 'static> ApplicationHandler for WinitApp<A> {
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
         self.window().request_redraw();
      }
@@ -90,7 +102,7 @@ impl<A: BaseAppTrait + 'static> ApplicationHandler for WinitApp<A> {
                     event_loop.exit();
                 },
                 WindowEvent::RedrawRequested => {
-                    if self.app.is_some() {//Winit tries for another tick after close
+                    if self.app.is_some() {
                         self.app().on_tick();
                         self.window().request_redraw();
                     }

@@ -1,6 +1,5 @@
-use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue};
+use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, WindowHandle, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue};
 
-use crate::winit::WinitWindow;
 use wgpu_canvas::{CanvasRenderer, CanvasAtlas, CanvasItem, Area};
 
 use std::cmp::min;
@@ -19,7 +18,7 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    pub async fn new(window: WinitWindow) -> Self {
+    pub async fn new(window: impl WindowHandle + 'static) -> Self {
         let instance = Instance::new(&InstanceDescriptor::default());
 
         let surface = instance.create_surface(window).unwrap();
@@ -88,7 +87,7 @@ impl Canvas {
         }
     }
 
-    pub fn resumed(&mut self, window: WinitWindow) {
+    pub fn resume(&mut self, window: impl WindowHandle + 'static) {
         self.surface = self.instance.create_surface(window).unwrap();
     }
 

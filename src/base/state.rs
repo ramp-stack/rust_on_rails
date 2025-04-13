@@ -15,6 +15,7 @@ pub trait Field: Serialize + for<'a> Deserialize <'a> + Default + Debug {
 
 impl<I: Serialize + for<'a> Deserialize <'a> + Default + Debug> Field for I {}
 
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct State(HashMap<String, Vec<u8>>);
 impl State {

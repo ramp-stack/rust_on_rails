@@ -1,17 +1,23 @@
 
 mod base;
-pub use base::*;
+pub use base::{_BackgroundApp, BackgroundApp, BackgroundTask, AsyncContext, AsyncTasks, BaseApp, Callback, State, AsyncTask};
 
-//  mod runtime;
-//  pub use runtime::*;
+mod canvas;
+pub use canvas::{CanvasApp};
+
+mod components;
 
 pub mod prelude {
     pub use crate::*;
-    pub use base::BaseAppTrait as App;
-    pub use base::BaseBackgroundAppTrait as BackgroundApp;
-    pub use base::BaseContext as Context;
-    pub use base::BaseAsyncContext as AsyncContext;
-    pub use crate::create_base_entry_points as create_entry_points;
+    pub use components::*;
+    pub use components::ComponentAppTrait as App;
+    pub use components::ComponentContext as Context;
+    pub use crate::create_component_entry_points as create_entry_points;
+
+    pub use include_dir;
+    pub use include_dir::include_dir as include_assets;
+
+    pub use proc::{Component, Plugin};
 }
 
 
@@ -56,5 +62,4 @@ pub mod prelude {
 //      pub use include_dir::include_dir as include_assets;
 //      pub use downcast_rs::DowncastSync;
 
-//      pub use proc::{Component, Plugin};
 //  }

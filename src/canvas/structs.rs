@@ -139,7 +139,7 @@ impl Text {
     }
 
     pub fn size(&self, ctx: &mut CanvasContext) -> (u32, u32) {
-        let size = self.clone().into_inner(&ctx.size).size(&mut ctx.atlas);
+        let size = self.clone().into_inner(&ctx.size).size(ctx.atlas);
         (ctx.size.scale_logical(size.0), ctx.size.scale_logical(size.1))
     }
 }
@@ -183,7 +183,7 @@ impl CanvasItem {
 pub struct Image(wgpu_canvas::Image);
 impl Image {
     pub fn new(ctx: &mut CanvasContext, image: image::RgbaImage) -> Self {
-        Image(wgpu_canvas::Image::new(&mut ctx.atlas, image))
+        Image(wgpu_canvas::Image::new(ctx.atlas, image))
     }
 
     pub fn svg(ctx: &mut CanvasContext, svg: &[u8], scale: f32) -> Self {
@@ -203,7 +203,7 @@ impl Image {
 pub struct Font(wgpu_canvas::Font);
 impl Font {
     pub fn new(ctx: &mut CanvasContext, font: Vec<u8>) -> Self {
-        Font(wgpu_canvas::Font::new(&mut ctx.atlas, font))
+        Font(wgpu_canvas::Font::new(ctx.atlas, font))
     }
 
     pub(crate) fn into_inner(self) -> wgpu_canvas::Font {

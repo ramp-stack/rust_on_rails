@@ -1,5 +1,4 @@
 pub struct Logger;
-
 impl Logger {
     pub fn start (level: log::Level) {
         #[cfg(target_os="android")]
@@ -21,5 +20,3 @@ impl Logger {
         }
     }
 }
-
-

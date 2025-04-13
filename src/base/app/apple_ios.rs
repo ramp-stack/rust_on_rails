@@ -20,6 +20,7 @@ impl<BA: BaseBackgroundAppTrait + 'static> BaseBackgroundApp<BA> {
         let runtime = Builder::new_current_thread().build().unwrap();
         let mut ctx = BaseAsyncContext::new(name);
         let app = runtime.block_on(BA::new(&mut ctx));
+        let tasks = runtime.block_on
         BaseBackgroundApp{runtime, ctx, app}
     }
 

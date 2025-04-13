@@ -1,6 +1,6 @@
 use super::ComponentContext;
 
-pub use crate::canvas::{MouseState, KeyboardEvent, KeyboardState, NamedKey, Key};
+pub use crate::canvas::{MouseState, KeyboardState, NamedKey, Key};
 
 use downcast_rs::{DowncastSync, impl_downcast};
 
@@ -38,6 +38,12 @@ impl Event for MouseEvent {
             Some(Box::new(MouseEvent{position, state: self.state}) as Box<dyn Event>)
         }).collect::<Vec<_>>().into_iter().rev().collect()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyboardEvent {
+    pub key: Key,
+    pub state: KeyboardState,
 }
 
 impl Event for KeyboardEvent {
