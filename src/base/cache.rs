@@ -20,18 +20,23 @@ impl AppStorage {
             PathBuf::from(env!("HOME")).join(format!(".{name}"))
         }
 
+        #[cfg(target_os="macos")]
+        {
+            PathBuf::from(env!("HOME")).join(format!(".{name}"))
+        }
+
        #[cfg(target_os="ios")]
         unsafe {
             let ptr = get_application_support_dir();
             if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
             let c_str = std::ffi::CStr::from_ptr(ptr);
-            PathBuf::from(c_str.to_string_lossy())
+            PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()))
         }
     }
 
     pub fn get_path(name: &str) -> PathBuf {
         let path = Self::_get_path(name);
-        #[cfg(not(any(target_os="linux", target_os="ios")))] { unimplemented!(); }
+        // #[cfg(not(any(target_os="linux", target_os="ios")))] { unimplemented!(); }
         std::fs::create_dir_all(&*path).unwrap();
         path
     }

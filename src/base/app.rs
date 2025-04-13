@@ -3,6 +3,16 @@ mod linux;
 #[cfg(target_os="linux")]
 pub use linux::{_BackgroundApp, BaseApp};
 
+#[cfg(target_os="macos")]
+mod macos;
+#[cfg(target_os="macos")]
+pub use macos::{_BackgroundApp, BaseApp};
+
+#[cfg(target_os="ios")]
+mod ios;
+#[cfg(target_os="ios")]
+pub use ios::{_BackgroundApp, BaseApp};
+
 use crate::base;
 use crate::base::{MouseState, KeyboardState};
 use winit_crate::event::{ElementState, WindowEvent, TouchPhase, Touch};
