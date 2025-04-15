@@ -1,19 +1,14 @@
 use crate::canvas;
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem};
 pub use crate::base::{State, Field, AsyncTasks};
-
-use crate::base::Callback;
+use crate::canvas::{CanvasContext, CanvasAppTrait};
 
 use include_dir::{DirEntry, Dir};
 
 use std::collections::HashMap;
-use std::time::Duration;
 use std::future::Future;
 use std::any::TypeId;
-use std::fmt::Debug;
 
 pub mod resources;
-use resources::Font;
 
 mod events;
 pub use events::{
