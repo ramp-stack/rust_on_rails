@@ -1,13 +1,6 @@
 use crate::canvas;
-use crate::canvas::{CanvasAppTrait, CanvasContext, CanvasItem, Color};
-use crate::base::{State, Field};
+use crate::canvas::{CanvasItem, Color};
 
-use include_dir::{DirEntry, Dir};
-
-use std::collections::HashMap;
-use std::time::{Instant, Duration};
-use std::future::Future;
-use std::any::TypeId;
 use std::fmt::Debug;
 
 use super::resources;
