@@ -15,6 +15,8 @@ pub use cache::Cache;
 mod tasks;
 pub use tasks::*;
 
+pub mod camera;
+
 
 pub trait WindowHandle: HasWindowHandle + HasDisplayHandle + Send + Sync + 'static {}
 impl<W: HasWindowHandle + HasDisplayHandle + Send + Sync + 'static> WindowHandle for W {}
