@@ -78,6 +78,9 @@ impl<A: BaseAppTrait> BaseApp<A> {
 }
 
 impl<A: BaseAppTrait + 'static> ApplicationHandler for BaseApp<A> {
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        self.window().request_redraw();
+    }
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
          self.window = Some(Arc::new(event_loop.create_window(
             Window::default_attributes().with_title("orange")
@@ -141,12 +144,9 @@ impl<A: BaseAppTrait + 'static> ApplicationHandler for BaseApp<A> {
 #[macro_export]
 macro_rules! create_app_entry_points {
     ($app:ty, $bg_app:ty) => {
-        pub fn desktop_main() {
-            if std::env::args().collect::<Vec<_>>().len() > 1 {
-                _BackgroundApp::start::<$bg_app>(env!("CARGO_PKG_NAME"))
-            } else {
-                BaseApp::<$app>::new(env!("CARGO_PKG_NAME")).start()
-            }
+        #[no_mangle]
+        pub extern "C" fn ios_main() {
+            BaseApp::<$app>::new(env!("CARGO_PKG_NAME")).start()
         }
     };
 }
