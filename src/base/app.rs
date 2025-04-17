@@ -13,6 +13,11 @@ mod ios;
 #[cfg(target_os="ios")]
 pub use ios::{_BackgroundApp, BaseApp};
 
+#[cfg(target_os="android")]
+mod android;
+#[cfg(target_os="android")]
+pub use android::{_BackgroundApp, BaseApp};
+
 use crate::base;
 use crate::base::{MouseState, KeyboardState};
 use winit_crate::event::{ElementState, WindowEvent, TouchPhase, Touch};

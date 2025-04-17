@@ -25,6 +25,11 @@ impl AppStorage {
             PathBuf::from(env!("HOME")).join(format!(".{name}"))
         }
 
+        #[cfg(target_os="android")]
+        {
+            PathBuf::from(env!("HOME")).join(format!(".{name}"))
+        }
+
        #[cfg(target_os="ios")]
         unsafe {
             let ptr = get_application_support_dir();
@@ -80,3 +85,4 @@ impl Cache {
 }
 
 //TODO: WASM Cache
+

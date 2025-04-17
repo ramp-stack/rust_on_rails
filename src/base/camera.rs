@@ -75,5 +75,6 @@ impl Camera {
             #[cfg(not(target_os = "ios"))]
             return Some(image);
         }
+        None
     }
 }
