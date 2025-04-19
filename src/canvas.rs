@@ -2,7 +2,7 @@ use wgpu_canvas::CanvasAtlas;
 
 mod structs;
 use structs::Size;
-pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font};
+pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font, Align};
 
 use crate::base;
 use crate::base::{BaseAppTrait, BaseContext, WindowHandle, AsyncTasks, State};

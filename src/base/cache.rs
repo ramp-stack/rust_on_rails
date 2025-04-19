@@ -2,6 +2,8 @@ use std::sync::Arc;
 use std::path::PathBuf;
 use std::fmt::Debug;
 
+use winit_crate::platform::android::activity::AndroidApp;
+
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::sync::Mutex;
 
@@ -14,7 +16,7 @@ extern "C" {
 
 pub struct AppStorage;
 impl AppStorage {
-    fn _get_path(name: &str) -> PathBuf {
+    fn _get_path(name: &str, app: &AndroidApp) -> PathBuf {
         #[cfg(target_os="linux")]
         {
             PathBuf::from(env!("HOME")).join(format!(".{name}"))
@@ -27,7 +29,8 @@ impl AppStorage {
 
         #[cfg(target_os="android")]
         {
-            PathBuf::from(env!("HOME")).join(format!(".{name}"))
+            // PathBuf::from(env!("HOME")).join(format!(".{name}"))
+            app.internal_data_path().unwrap().join(format!(".{name}"))
         }
 
        #[cfg(target_os="ios")]
@@ -39,8 +42,8 @@ impl AppStorage {
         }
     }
 
-    pub fn get_path(name: &str) -> PathBuf {
-        let path = Self::_get_path(name);
+    pub fn get_path(name: &str, app: &AndroidApp) -> PathBuf {
+        let path = Self::_get_path(name, app);
         // #[cfg(not(any(target_os="linux", target_os="ios")))] { unimplemented!(); }
         std::fs::create_dir_all(&*path).unwrap();
         path
@@ -55,8 +58,8 @@ pub struct Cache(
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Cache {
-    pub(crate) async fn new(name: &str) -> Self {
-        let path = AppStorage::get_path(name).join("cache.db");
+    pub(crate) async fn new(name: &str, app: &AndroidApp) -> Self {
+        let path = AppStorage::get_path(name, app).join("cache.db");
         let db = rusqlite::Connection::open(path).unwrap();
         db.execute(
             "CREATE TABLE if not exists kvs(key TEXT NOT NULL UNIQUE, value TEXT);", []
@@ -85,4 +88,3 @@ impl Cache {
 }
 
 //TODO: WASM Cache
-

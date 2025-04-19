@@ -1,5 +1,5 @@
 use crate::canvas;
-use crate::canvas::{CanvasItem, Color};
+use crate::canvas::{CanvasItem, Color, Align};
 
 use std::fmt::Debug;
 
@@ -48,16 +48,17 @@ pub struct Text{
     pub max_width: Option<f32>,
     pub font_size: f32,
     pub line_height: f32,
-    pub font: resources::Font
+    pub font: resources::Font,
+    pub align: Align
 }
 
 impl Text {
-    pub fn new(text: &str, color: Color, max_width: Option<f32>, font_size: f32, line_height: f32, font: resources::Font) -> Self {
-        Text{text: text.to_string(), color, max_width, font_size, line_height, font}
+    pub fn new(text: &str, color: Color, max_width: Option<f32>, font_size: f32, line_height: f32, font: resources::Font, align: Align) -> Self {
+        Text{text: text.to_string(), color, max_width, font_size, line_height, font, align}
     }
 
     fn into_inner(self) -> canvas::Text {
-        canvas::Text{text: self.text, color: self.color, width: self.max_width, size: self.font_size, line_height: self.line_height, font: self.font.clone().into_inner()}
+        canvas::Text{text: self.text, color: self.color, width: self.max_width, size: self.font_size, line_height: self.line_height, font: self.font.clone().into_inner(), align: self.align}
     }
 }
 

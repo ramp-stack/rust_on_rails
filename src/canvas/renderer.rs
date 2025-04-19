@@ -34,6 +34,9 @@ impl Canvas {
         let mut limits = Limits::downlevel_webgl2_defaults();
         limits.max_texture_dimension_2d = 8192;
 
+        #[cfg(target_os = "android")]
+        { limits.max_texture_dimension_2d = 4096; }
+
         let (device, queue) = adapter.request_device(
             &DeviceDescriptor {
                 required_features: Features::empty(),

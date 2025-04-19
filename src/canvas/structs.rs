@@ -1,4 +1,5 @@
 use super::CanvasContext;
+pub use wgpu_canvas::Align;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Size {
@@ -108,7 +109,8 @@ pub struct Text {
     pub width: Option<f32>,
     pub size: f32,
     pub line_height: f32,
-    pub font: Font
+    pub font: Font,
+    pub align: Align,
 }
 
 impl Text {
@@ -118,9 +120,10 @@ impl Text {
         width: Option<f32>,
         size: f32,
         line_height: f32,
-        font: Font
+        font: Font,
+        align: Align,
     ) -> Self {
-        Text{text: text.to_string(), color, width, size, line_height, font}
+        Text{text: text.to_string(), color, width, size, line_height, font, align}
     }
 
     pub(crate) fn into_inner(self, size: &Size) -> wgpu_canvas::Text {
@@ -130,7 +133,8 @@ impl Text {
             width: self.width.map(|w| size.scale_physical(w)),
             size: size.scale_physical(self.size),
             line_height: size.scale_physical(self.line_height),
-            font: self.font.into_inner()
+            font: self.font.into_inner(),
+            align: self.align,
         }
     }
 

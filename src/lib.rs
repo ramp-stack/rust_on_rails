@@ -1,13 +1,15 @@
 mod base;
-pub use base::{_BackgroundApp, BackgroundApp, BackgroundTask, AsyncContext, AsyncTasks, BaseApp, Callback, State, AsyncTask};
+pub use base::*;
 
 mod canvas;
-pub use canvas::{CanvasApp};
+pub use canvas::CanvasApp;
 
 mod components;
 
 pub mod prelude {
     pub use crate::*;
+
+    pub use canvas::Align as TextAlign;
 
     pub use components::*;
     pub use components::ComponentAppTrait as App;

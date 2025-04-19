@@ -58,7 +58,7 @@ pub trait BaseAppTrait {
 }
 
 mod app;
-pub use app::{_BackgroundApp, BaseApp};
+pub use app::*;
 
 //TODO: Replace winit structures with custom structs
 pub use winit_crate::keyboard::{NamedKey, SmolStr, Key};
