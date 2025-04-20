@@ -1,94 +1,185 @@
 use std::future::Future;
-use std::sync::Arc;
 
-use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
+pub mod driver;
+use driver::logger::Logger;
+use driver::state::State;
+use driver::cache::Cache;
 
-mod logger;
-pub use logger::Logger;
+pub mod runtime;
+use runtime::{BlockingRuntime, Runtime, Tasks};
 
-mod state;
-pub use state::{State, Field};
+pub mod window;
+use window::{WindowAppTrait, WindowHandle, WindowEvent};
+pub use window::{MouseState, KeyboardState, NamedKey, SmolStr, Key};
 
-mod cache;
-pub use cache::Cache;
+pub mod renderer;
+pub use renderer::Renderer;
 
-mod tasks;
-pub use tasks::*;
-
-
-pub trait WindowHandle: HasWindowHandle + HasDisplayHandle + Send + Sync + 'static {}
-impl<W: HasWindowHandle + HasDisplayHandle + Send + Sync + 'static> WindowHandle for W {}
-
-pub struct AsyncContext {
-    pub cache: Cache,
-}
-
-pub trait BackgroundApp: Send {
+pub trait BaseAppTrait<R: Renderer> {
     const LOG_LEVEL: log::Level;
-
-    fn new(ctx: &mut AsyncContext) -> impl Future<Output = Self> where Self: Sized;
-
-    fn register_tasks(&mut self, ctx: &mut AsyncContext) -> impl Future<Output = BackgroundTasks<Self>> where Self: Sized;
+    fn background_tasks(ctx: &mut HeadlessContext) -> impl Future<Output = Tasks> where Self: Sized;
+    fn new(
+        ctx: &mut Context<R>, h_ctx: &mut HeadlessContext, width: f32, height: f32
+    ) -> impl Future<Output = (Self, Tasks)> where Self: Sized;
+    fn on_event(&mut self, ctx: &mut Context<R>, event: Event);
+    fn draw(&mut self, ctx: &mut Context<R>) -> R::Input;
+    fn close(self) -> impl Future<Output = ()>;
 }
 
-pub struct BaseContext {
-    pub state: State,
-}
-
-impl BaseContext {
-    //TODO: pub fn open_camera(...)
-}
-
-pub trait BaseAppTrait {
-    const LOG_LEVEL: log::Level;
-
-    fn register_tasks() -> impl Future<Output = AsyncTasks>;
-
-    fn new<W: WindowHandle>(
-        ctx: &mut BaseContext, window: Arc<W>, width: u32, height: u32, scale_factor: f64
-    ) -> impl Future<Output = Self> where Self: Sized;
-
-    fn on_resume<W: WindowHandle>(
-        &mut self, ctx: &mut BaseContext, window: Arc<W>, width: u32, height: u32, scale_factor: f64
-    ) -> impl Future<Output = ()>;
-
-    fn on_event(&mut self, ctx: &mut BaseContext, event: WindowEvent);
-}
-
-mod app;
-pub use app::{_BackgroundApp, BaseApp};
-
-//TODO: Replace winit structures with custom structs
-pub use winit_crate::keyboard::{NamedKey, SmolStr, Key};
-
+///Event provides access to all window events in logical pixels
 #[derive(Debug, Clone, PartialEq)]
-pub enum WindowEvent {
-    Resize{width: u32, height: u32, scale_factor: f64},
-    Mouse{position: (u32, u32), state: MouseState},
+pub enum Event {
+    Resized{width: f32, height: f32},
+    Mouse{position: (f32, f32), state: MouseState},
     Keyboard{key: Key, state: KeyboardState},
-    Pause,
-    Close,
+    Resumed{width: f32, height: f32},
+    Paused,
     Tick
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MouseState {
-    Pressed,
-    Moved,
-    Released
+pub struct HeadlessContext {
+    pub cache: Cache,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KeyboardState {
-    Pressed,
-    Released
+impl HeadlessContext {
+    async fn new(name: &str) -> Self {
+        HeadlessContext{
+            cache: Cache::new(name).await,
+        }
+    }
+}
+
+pub struct Context<R: Renderer> {
+    pub cache: Cache,
+    pub state: State,
+    pub r_ctx: R::Context
+}
+
+impl<R: Renderer> AsMut<R::Context> for Context<R> {
+    fn as_mut(&mut self) -> &mut R::Context {
+        &mut self.r_ctx
+    }
+}
+
+impl<R: Renderer> Context<R> {
+    async fn new(name: &str, r_ctx: R::Context) -> Self {
+        Context{
+            cache: Cache::new(name).await,
+            state: State::default(),
+            r_ctx
+        }
+    }
+
+    pub fn render_ctx(&mut self) -> &mut R::Context {self.as_mut()}
+
+    pub fn state(&mut self) -> &mut State {&mut self.state}
+  //TODO: pub fn open_camera(...)
+}
+
+pub struct BackgroundApp;
+impl BackgroundApp {
+    pub fn new_start<R: Renderer, A: BaseAppTrait<R>>(name: &str) {
+        let (ctx, tasks) = BlockingRuntime::block_on(async {
+            let mut ctx = HeadlessContext::new(name).await;
+            let tasks = A::background_tasks(&mut ctx).await;
+            (ctx, tasks)
+        }).unwrap();
+        Runtime::new_background(ctx, tasks);
+    }
+}
+
+///BaseApp is the heart of rust_on_rails providing all
+///of the hardware interfaces for higher level applications(canvas, components)
+pub struct BaseApp<R: Renderer, A: BaseAppTrait<R>> {
+    runtime: Runtime,
+    renderer: R,
+    context: Context<R>,
+    app: A
+}
+
+impl<R: Renderer, A: BaseAppTrait<R>> WindowAppTrait for BaseApp<R, A> {
+    async fn new<W: WindowHandle>(
+        name: &str, window: W, width: u32, height: u32, scale_factor: f64
+    ) -> Self {
+        Logger::start(A::LOG_LEVEL);        
+        let (renderer, r_ctx, (width, height)) = R::new(window, width, height, scale_factor).await;
+        let mut context = Context::new(name, r_ctx).await;
+        let mut headless_ctx = HeadlessContext::new(name).await;
+        let (app, tasks) = A::new(&mut context, &mut headless_ctx, width, height).await;
+        let runtime = Runtime::new::<R, A>(headless_ctx, tasks);
+        BaseApp{renderer, runtime, context, app}
+    }
+
+    async fn on_event<W: WindowHandle>(&mut self, event: WindowEvent<W>) {
+        let event = match event {
+            WindowEvent::Resized{width, height, scale_factor} => {
+                let (width, height) = self.renderer.resize::<W>(
+                    &mut self.context.r_ctx, None, width, height, scale_factor
+                ).await;
+                Some(Event::Resized{width, height})
+            },
+            WindowEvent::Mouse{position, state} => {
+                let scale = self.renderer.get_scale(&self.context.r_ctx);
+                Some(Event::Mouse{position: (
+                    scale.logical(position.0 as f32), scale.logical(position.1 as f32)
+                ), state})
+            }
+            WindowEvent::Keyboard{key, state} => Some(Event::Keyboard{key, state}),
+            WindowEvent::Resumed{window, width, height, scale_factor} => {
+                self.runtime.resume();
+                let (width, height) = self.renderer.resize(
+                    &mut self.context.r_ctx, Some(window.into()), width, height, scale_factor
+                ).await;
+                Some(Event::Resumed{width, height})
+            },
+            WindowEvent::Paused => {
+                self.runtime.pause();
+                Some(Event::Paused)
+            },
+            WindowEvent::Tick => {
+                self.app.on_event(&mut self.context, Event::Tick);
+                let input = self.app.draw(&mut self.context);
+                self.renderer.draw(&mut self.context.r_ctx, input).await;
+                None
+            }  
+        };
+        if let Some(event) = event {self.app.on_event(&mut self.context, event);}
+    }
+
+    async fn close(mut self) {
+        self.runtime.close();
+        self.app.close().await;
+    }
 }
 
 #[macro_export]
 macro_rules! create_base_entry_points {
-    ($app:ty, $bg_app:ty) => {
-        pub type BackgroundTasks = Vec<(std::time::Duration, BackgroundTask<$bg_app>)>;
+    ($renderer:ty, $app:ty) => {
+        #[cfg(target_os = "android")]
+        #[no_mangle]
+        pub fn android_main(app: AndroidApp) {
+            WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start(app);
+        }
 
-        create_app_entry_points!($app, $bg_app);
+        #[cfg(target_os = "ios")]
+        #[no_mangle]
+        pub extern "C" fn ios_main() {
+            WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start();
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+        pub fn wasm_main() {
+            WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start();
+        }
+
+        #[cfg(not(any(target_os = "android", target_os="ios", target_arch = "wasm32")))]
+        pub fn desktop_main() {
+            if std::env::args().len() == 1 {
+                WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start();
+            } else {
+                BackgroundApp::new_start::<$renderer, $app>(env!("CARGO_PKG_NAME"));
+            }
+        }
     };
 }

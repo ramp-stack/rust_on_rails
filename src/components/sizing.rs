@@ -1,4 +1,4 @@
-use super::ComponentContext;
+use super::Context;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Area {
@@ -10,11 +10,11 @@ pub struct Area {
 pub trait Layout: std::fmt::Debug {
 
     ///Given a list of children size requests calculate the size request for the total layout
-   fn request_size(&self, ctx: &mut ComponentContext, children: Vec<SizeRequest>) -> SizeRequest;
+   fn request_size(&self, ctx: &mut Context, children: Vec<SizeRequest>) -> SizeRequest;
 
     ///Given an allotted size and the list of chlidren size requests (which may respect the size request),
     ///calculate the actual offsets and allotted sizes for its children
-    fn build(&self, ctx: &mut ComponentContext, size: (f32, f32), children: Vec<SizeRequest>) -> Vec<Area>;
+    fn build(&self, ctx: &mut Context, size: (f32, f32), children: Vec<SizeRequest>) -> Vec<Area>;
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, PartialOrd)]

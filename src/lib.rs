@@ -1,21 +1,21 @@
 mod base;
-pub use base::{_BackgroundApp, BackgroundApp, BackgroundTask, AsyncContext, AsyncTasks, BaseApp, Callback, State, AsyncTask};
+pub use base::{BackgroundApp, HeadlessContext, BaseApp};
+pub use base::runtime::{Task, Tasks, async_trait};
+pub use base::window::WindowApp;
+pub use base::driver::state::{State, Field};
 
+#[cfg(feature = "canvas")]
 mod canvas;
-pub use canvas::{CanvasApp};
-
-mod components;
-
+#[cfg(feature = "canvas")]
 pub mod prelude {
+    pub use crate::canvas::*;
     pub use crate::*;
+}
 
-    pub use components::*;
-    pub use components::ComponentAppTrait as App;
-    pub use components::ComponentContext as Context;
-    pub use crate::create_component_entry_points as create_entry_points;
-
-    pub use include_dir;
-    pub use include_dir::include_dir as include_assets;
-
-    pub use proc::{Component, Plugin};
+#[cfg(feature = "components")]
+mod components;
+#[cfg(feature = "components")]
+pub mod prelude {
+    pub use crate::components::*;
+    pub use crate::*;
 }

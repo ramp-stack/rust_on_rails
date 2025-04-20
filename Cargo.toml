@@ -45,8 +45,9 @@ web-sys = { version = "0.3", features = [
 
 [features]
 default = ["components"]
-canvas = []
-components = []
+canvas = ["wgpu_canvas"]
+components = ["wgpu_canvas"]
+wgpu_canvas = []
 
 [package.metadata.deb]
 maintainer-scripts = "debian/"

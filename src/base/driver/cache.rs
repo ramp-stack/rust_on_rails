@@ -5,7 +5,7 @@ use std::fmt::Debug;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::sync::Mutex;
 
-use super::Field;
+use super::state::Field;
 
 #[cfg(target_os = "ios")]
 extern "C" {

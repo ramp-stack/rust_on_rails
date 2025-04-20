@@ -1,20 +1,26 @@
-use crate::canvas;
-pub use crate::base::{State, Field, AsyncTasks};
-use crate::canvas::{CanvasContext, CanvasAppTrait};
+use crate::base;
 
-use include_dir::{DirEntry, Dir};
+pub use base::renderer::wgpu_canvas::{Canvas, CanvasContext, Color, Image, Font};
+use base::runtime::{Tasks};
+use base::{BaseAppTrait, HeadlessContext};
+use base::driver::state::State;
+use base::renderer::wgpu_canvas::Area as CanvasArea;
+use base::renderer::wgpu_canvas::CanvasItem;
+
+pub use include_dir::{DirEntry, Dir};
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::time::Instant;
 use std::any::TypeId;
-
-pub mod resources;
 
 mod events;
 pub use events::{
-    Events, Event, TickEvent, MouseEvent, MouseState,
+    Events, OnEvent, Event, TickEvent, MouseEvent, MouseState,
     KeyboardEvent, KeyboardState, NamedKey, Key, SmolStr
 };
+
+mod resources;
 
 mod sizing;
 pub use sizing::{Layout, SizeRequest, Area};
@@ -22,33 +28,27 @@ pub use sizing::{Layout, SizeRequest, Area};
 mod drawable;
 pub use drawable::*;
 
-pub use canvas::Color;
+pub type Assets = Vec<Dir<'static>>;
 
-pub trait Plugin {}
-
-pub struct ComponentContext<'a, 'b> {
-    plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
-    assets: &'a mut Vec<Dir<'static>>,
-    events: &'a mut Vec<Box<dyn Event>>,
-    canvas: &'a mut CanvasContext<'b>,
+pub struct Context<'a> {
+    plugins: &'a mut Plugins,
+    assets: &'a mut Assets,
+    events: &'a mut Events,
+    base_context: &'a mut base::Context<Canvas>,
 }
 
-impl<'a, 'b> ComponentContext<'a, 'b> {
+impl<'a> Context<'a> {
     pub fn new(
-        plugins: &'a mut HashMap<TypeId, Box<dyn std::any::Any>>,
-        assets: &'a mut Vec<Dir<'static>>,
-        events: &'a mut Vec<Box<dyn Event>>,
-        canvas: &'a mut CanvasContext<'b>,
+        plugins: &'a mut Plugins,
+        assets: &'a mut Assets,
+        events: &'a mut Events,
+        base_context: &'a mut base::Context<Canvas>
     ) -> Self {
-        ComponentContext{plugins, assets, canvas, events}
+        Context{plugins, assets, events, base_context}
     }
-
-    pub fn configure_plugin<P: Plugin + 'static>(&mut self, plugin: P) {
-        self.plugins.insert(TypeId::of::<P>(), Box::new(plugin));
-    }
-
+        
     pub fn trigger_event(&mut self, event: impl Event) {
-        self.events.push(Box::new(event));
+        self.events.push_back(Box::new(event));
     }
 
     pub fn get<P: Plugin + 'static>(&mut self) -> &mut P {
@@ -57,12 +57,23 @@ impl<'a, 'b> ComponentContext<'a, 'b> {
             .downcast_mut().unwrap()
     }
 
-    pub fn state(&mut self) -> &mut State {self.canvas.state()}
+    pub fn state(&mut self) -> &mut State {self.base_context.state()}
 
     pub fn include_assets(&mut self, dir: Dir<'static>) {
         self.assets.push(dir);
     }
 
+    pub fn add_font(&mut self, font: &[u8]) -> Font {self.base_context.render_ctx().add_font(font)}
+    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {self.base_context.render_ctx().add_image(image)}
+    pub fn load_font(&mut self, file: &str) -> Font {
+        self.load_file(file).map(|b| self.add_font(&b)).expect("Could not find file")
+    }
+
+    pub fn load_image(&mut self, file: &str) -> Image {
+        self.load_file(file).map(|b|
+            self.add_image(image::load_from_memory(&b).unwrap().into())
+        ).expect("Could not find file")
+    }
     pub fn load_file(&self, file: &str) -> Option<Vec<u8>> {
         self.assets.iter().find_map(|dir|
             dir.find(file).ok().and_then(|mut f|
@@ -74,70 +85,108 @@ impl<'a, 'b> ComponentContext<'a, 'b> {
     }
 }
 
-pub trait ComponentAppTrait {
-    fn register_tasks() -> impl Future<Output = AsyncTasks> where Self: Sized;
-    fn root(ctx: &mut ComponentContext) -> impl std::future::Future<Output = Box<dyn Drawable>> where Self: Sized;
+pub trait Plugin {
+    fn background_tasks(_ctx: &mut HeadlessContext) -> impl Future<Output = Tasks> {async {vec![]}}
+    fn new(
+        ctx: &mut Context<'_>, h_ctx: &mut HeadlessContext
+    ) -> impl Future<Output = (Self, Tasks)> where Self: Sized;
 }
 
-pub struct ComponentApp<A: ComponentAppTrait> {
-    plugins: HashMap<TypeId, Box<dyn std::any::Any>>,
-    assets: Vec<Dir<'static>>,
+pub type Plugins = HashMap<TypeId, Box<dyn std::any::Any>>;
+
+pub trait App {
+    fn background_tasks(_ctx: &mut HeadlessContext) -> impl Future<Output = Tasks> {async {vec![]}}
+
+    fn plugins(
+        _ctx: &mut Context<'_>, _h_ctx: &mut HeadlessContext
+    ) -> impl Future<Output = (Plugins, Tasks)> {async {(HashMap::new(), vec![])}}
+
+    fn new(ctx: &mut Context<'_>) -> impl Future<Output = Box<dyn Drawable>>;
+}
+
+pub struct ComponentApp<A: App> {
+    plugins: Plugins,
+    assets: Assets,
+    events: Events,
     app: Box<dyn Drawable>,
     screen: (f32, f32),
     sized_app: SizedBranch,
-    events: Vec<Box<dyn Event>>,
-    _p: std::marker::PhantomData<A>
+    _p: std::marker::PhantomData<A>,
+
+    time: Instant
 }
 
-impl<A: ComponentAppTrait> CanvasAppTrait for ComponentApp<A> {
-    async fn register_tasks() -> AsyncTasks {A::register_tasks().await}
-    async fn new<'a>(ctx: &'a mut CanvasContext<'a>, width: f32, height: f32) -> Self {
-        let mut plugins = HashMap::new();
-        let mut assets = Vec::new();
-        let mut events = Vec::new();
-        let mut ctx = ComponentContext::new(&mut plugins, &mut assets, &mut events, ctx);
-        let mut app = A::root(&mut ctx).await;
-        let size_request = _Drawable::request_size(&*app, &mut ctx);
-        let sized_app = app.build(&mut ctx, (width, height), size_request);
-        ComponentApp{plugins, assets, app, screen: (width, height), sized_app, events: Vec::new(), _p: std::marker::PhantomData::<A>}
+impl<A: App> BaseAppTrait<Canvas> for ComponentApp<A> {
+    const LOG_LEVEL: log::Level = log::Level::Error;
+
+    async fn background_tasks(ctx: &mut HeadlessContext) -> Tasks {
+        A::background_tasks(ctx).await
     }
 
-    fn on_event<'a>(&'a mut self, ctx: &'a mut CanvasContext<'a>, event: canvas::WindowEvent) {
+    async fn new(
+        base_ctx: &mut base::Context<Canvas>, h_ctx: &mut HeadlessContext, width: f32, height: f32
+    ) -> (Self, Tasks) {
+        let mut plugins = HashMap::new();
+        let mut assets = Assets::new();
+        let mut events = Events::new();
+        let mut ctx = Context::new(&mut plugins, &mut assets, &mut events, base_ctx);
+        let (mut plugins, tasks) = A::plugins(&mut ctx, h_ctx).await;
+        let mut ctx = Context::new(&mut plugins, &mut assets, &mut events, base_ctx);
+
+        let mut app = A::new(&mut ctx).await;
+        let size_request = _Drawable::request_size(&*app, &mut ctx);
+        let screen = (width, height);
+        let sized_app = app.build(&mut ctx, screen, size_request);
+        (
+            ComponentApp{plugins, assets, events, app, screen, sized_app, _p: std::marker::PhantomData::<A>, time: Instant::now()},
+            tasks
+        )
+    }
+
+    //TODO: Add Pause Resume And Close Events
+    //Event Order: Event::Tick => TickEvent, Other Captured/Triggered Events, Draw call
+    fn on_event(&mut self, base_ctx: &mut base::Context<Canvas>, event: base::Event) {
         match event {
-            canvas::WindowEvent::Resize{width, height} |
-            canvas::WindowEvent::Resume{width, height} => {
+            base::Event::Resized{width, height} | base::Event::Resumed{width, height} => {
                 self.screen = (width, height);
             },
-            canvas::WindowEvent::Mouse{position, state} => {
-                self.events.push(Box::new(MouseEvent{position: Some(position), state}));
+            base::Event::Mouse{position, state} => {
+                self.events.push_back(Box::new(MouseEvent{position: Some(position), state}));
             },
-            canvas::WindowEvent::Keyboard{key, state} => {
-                self.events.push(Box::new(KeyboardEvent{key, state}));
+            base::Event::Keyboard{key, state} => {
+                self.events.push_back(Box::new(KeyboardEvent{key, state}));
             },
-            canvas::WindowEvent::Tick => {
-                let events = self.events.drain(..).collect::<Vec<_>>();//Events triggered on this tick will be run on the next tick
-                let mut ctx = ComponentContext::new(&mut self.plugins, &mut self.assets, &mut self.events, ctx);
+            base::Event::Tick => {
+                let mut ctx = Context::new(&mut self.plugins, &mut self.assets, &mut self.events, base_ctx);
                 self.app.event(&mut ctx, self.sized_app.clone(), Box::new(TickEvent));
-                events.into_iter().for_each(|event|
+                while let Some(event) = self.events.pop_front() {
+                    let mut ctx = Context::new(&mut self.plugins, &mut self.assets, &mut self.events, base_ctx);
                     if let Some(event) = event.pass(&mut ctx, vec![((0.0, 0.0), self.sized_app.0)]).remove(0) {
                         self.app.event(&mut ctx, self.sized_app.clone(), event)
                     }
-                );
+                }
 
-                let size_request = _Drawable::request_size(&*self.app, &mut ctx);
-                self.sized_app = self.app.build(&mut ctx, self.screen, size_request);
-                self.app.draw(&mut ctx, self.sized_app.clone(), (0.0, 0.0), (0.0, 0.0, self.screen.0, self.screen.1));
             },
             _ => {}
         }
     }
+
+    fn draw(&mut self, ctx: &mut base::Context<Canvas>) -> Vec<(CanvasArea, CanvasItem)> {
+        log::error!("last_frame: {:?}", self.time.elapsed());
+        self.time = Instant::now();
+        let mut ctx = Context::new(&mut self.plugins, &mut self.assets, &mut self.events, ctx);
+
+        let size_request = _Drawable::request_size(&*self.app, &mut ctx);
+        self.sized_app = self.app.build(&mut ctx, self.screen, size_request);
+        self.app.draw(&mut ctx, self.sized_app.clone(), (0.0, 0.0), (0.0, 0.0, self.screen.0, self.screen.1))
+    }
+
+    async fn close(self) {}
 }
 
 #[macro_export]
-macro_rules! create_component_entry_points {
-    ($app:ty, $bg_app:ty) => {
-        create_canvas_entry_points!(ComponentApp::<$app>, $bg_app);
+macro_rules! create_entry_points {
+    ($app:ty) => {
+        create_base_entry_points!(Canvas, ComponentApp::<$app>);
     };
 }
-
-

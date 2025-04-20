@@ -29,7 +29,7 @@ impl _BackgroundApp {
     }
 }
 
-pub struct BaseApp<A: BaseAppTrait + 'static> {
+pub struct WindowApp<A: BaseAppTrait + 'static> {
     runtime: Runtime,
     window: Option<Arc<Window>>,
     event_handler: WinitEventHandler,
