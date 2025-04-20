@@ -2,6 +2,9 @@ use std::sync::Arc;
 use std::path::PathBuf;
 use std::fmt::Debug;
 
+#[cfg(target_os = "android")]
+use winit_crate::platform::android::activity::AndroidApp;
+
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::sync::Mutex;
 
@@ -12,34 +15,30 @@ extern "C" {
     fn get_application_support_dir() -> *const std::os::raw::c_char;
 }
 
-pub struct AppStorage;
-impl AppStorage {
-    fn _get_path(name: &str) -> PathBuf {
-        #[cfg(target_os="linux")]
-        {
-            PathBuf::from(env!("HOME")).join(format!(".{name}"))
-        }
-
-        #[cfg(target_os="macos")]
-        {
-            PathBuf::from(env!("HOME")).join(format!(".{name}"))
-        }
-
-       #[cfg(target_os="ios")]
+#[macro_export]
+macro_rules! app_storage_path {
+    () => {{
+        #[cfg(target_os="ios")]
         unsafe {
             let ptr = get_application_support_dir();
             if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
             let c_str = std::ffi::CStr::from_ptr(ptr);
-            PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()))
+            std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()))
         }
-    }
 
-    pub fn get_path(name: &str) -> PathBuf {
-        let path = Self::_get_path(name);
-        // #[cfg(not(any(target_os="linux", target_os="ios")))] { unimplemented!(); }
-        std::fs::create_dir_all(&*path).unwrap();
-        path
-    }
+        #[cfg(target_os="android")]
+        {
+            app.internal_data_path().unwrap().join(format!(".{}", env!("CARGO_PKG_NAME")))
+        }
+
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            std::path::PathBuf::from(env!("HOME")).join(format!(".{}", env!("CARGO_PKG_NAME")))
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {todo!()}
+    }}
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -50,8 +49,9 @@ pub struct Cache(
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Cache {
-    pub(crate) async fn new(name: &str) -> Self {
-        let path = AppStorage::get_path(name).join("cache.db");
+    pub(crate) async fn new(storage_path: PathBuf) -> Self {
+        std::fs::create_dir_all(&storage_path).unwrap();
+        let path = storage_path.join("cache.db");
         let db = rusqlite::Connection::open(path).unwrap();
         db.execute(
             "CREATE TABLE if not exists kvs(key TEXT NOT NULL UNIQUE, value TEXT);", []

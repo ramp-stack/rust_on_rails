@@ -8,14 +8,14 @@ pub use base::driver::state::{State, Field};
 mod canvas;
 #[cfg(feature = "canvas")]
 pub mod prelude {
-    pub use crate::canvas::*;
     pub use crate::*;
+    pub use crate::canvas::*;
 }
 
 #[cfg(feature = "components")]
 mod components;
 #[cfg(feature = "components")]
 pub mod prelude {
-    pub use crate::components::*;
     pub use crate::*;
+    pub use crate::components::*;
 }

@@ -2336,6 +2336,7 @@ dependencies = [
  "hex",
  "image 0.25.5",
  "include_dir",
+ "jni",
  "log",
  "nsvg",
  "proc",

@@ -1,6 +1,14 @@
+<<<<<<< HEAD
 pub use crate::base::renderer::wgpu_canvas::{
     Canvas, CanvasContext, Area, Color, CanvasItem, Shape, Text, Image, Font
 };
+=======
+use wgpu_canvas::CanvasAtlas;
+
+mod structs;
+use structs::Size;
+pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font, Align};
+>>>>>>> 2a325e10b5b30a820c368e3e9b0bb05eb8cc45b9
 
 use crate::base;
 use base::driver::state::State;

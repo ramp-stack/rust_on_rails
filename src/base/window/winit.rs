@@ -1,4 +1,6 @@
+use std::path::PathBuf;
 use std::sync::Arc;
+
 
 use crate::base::runtime::{BlockingRuntime, BlockingFuture};
 
@@ -15,12 +17,12 @@ pub struct Winit<A: WindowAppTrait + 'static> {
     window: Option<Arc<Window>>,
     mouse: (u32, u32),
     size: (u32, u32),
-    name: Option<&'static str>,
+    name: Option<PathBuf>,
     app: Option<A>
 }
 
 impl<A: WindowAppTrait + 'static> Winit<A> {
-    pub fn new(name: &'static str) -> Self {
+    pub fn new(name: PathBuf) -> Self {
         Winit{
             scale_factor: 0.0,
             future: None,

@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::path::PathBuf;
 use raw_window_handle::{HasWindowHandle, HasDisplayHandle};
 
 ///WindowHandle provides a trait for any generic Window that the Renderers can use
@@ -27,7 +28,7 @@ pub enum KeyboardState{ Pressed, Released }
 
 pub trait WindowAppTrait {
     fn new<W: WindowHandle>(
-        name: &str, window: W, width: u32, height: u32, scale_factor: f64
+        storage_path: PathBuf, window: W, width: u32, height: u32, scale_factor: f64
     ) -> impl Future<Output = Self> where Self: Sized;
     fn on_event<W: WindowHandle>(&mut self, event: WindowEvent<W>) -> impl Future<Output = ()>;
     fn close(self) -> impl Future<Output = ()>;

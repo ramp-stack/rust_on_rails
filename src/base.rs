@@ -1,9 +1,11 @@
 use std::future::Future;
+use std::path::PathBuf;
 
 pub mod driver;
 use driver::logger::Logger;
 use driver::state::State;
 use driver::cache::Cache;
+use driver::camera::Camera;
 
 pub mod runtime;
 use runtime::{BlockingRuntime, Runtime, Tasks};
@@ -42,9 +44,9 @@ pub struct HeadlessContext {
 }
 
 impl HeadlessContext {
-    async fn new(name: &str) -> Self {
+    async fn new(storage_path: PathBuf) -> Self {
         HeadlessContext{
-            cache: Cache::new(name).await,
+            cache: Cache::new(storage_path).await,
         }
     }
 }
@@ -62,9 +64,9 @@ impl<R: Renderer> AsMut<R::Context> for Context<R> {
 }
 
 impl<R: Renderer> Context<R> {
-    async fn new(name: &str, r_ctx: R::Context) -> Self {
+    async fn new(storage_path: PathBuf, r_ctx: R::Context) -> Self {
         Context{
-            cache: Cache::new(name).await,
+            cache: Cache::new(storage_path).await,
             state: State::default(),
             r_ctx
         }
@@ -78,9 +80,9 @@ impl<R: Renderer> Context<R> {
 
 pub struct BackgroundApp;
 impl BackgroundApp {
-    pub fn new_start<R: Renderer, A: BaseAppTrait<R>>(name: &str) {
+    pub fn new_start<R: Renderer, A: BaseAppTrait<R>>(storage_path: PathBuf) {
         let (ctx, tasks) = BlockingRuntime::block_on(async {
-            let mut ctx = HeadlessContext::new(name).await;
+            let mut ctx = HeadlessContext::new(storage_path).await;
             let tasks = A::background_tasks(&mut ctx).await;
             (ctx, tasks)
         }).unwrap();
@@ -99,12 +101,12 @@ pub struct BaseApp<R: Renderer, A: BaseAppTrait<R>> {
 
 impl<R: Renderer, A: BaseAppTrait<R>> WindowAppTrait for BaseApp<R, A> {
     async fn new<W: WindowHandle>(
-        name: &str, window: W, width: u32, height: u32, scale_factor: f64
+        storage_path: PathBuf, window: W, width: u32, height: u32, scale_factor: f64
     ) -> Self {
         Logger::start(A::LOG_LEVEL);        
         let (renderer, r_ctx, (width, height)) = R::new(window, width, height, scale_factor).await;
-        let mut context = Context::new(name, r_ctx).await;
-        let mut headless_ctx = HeadlessContext::new(name).await;
+        let mut context = Context::new(storage_path.clone(), r_ctx).await;
+        let mut headless_ctx = HeadlessContext::new(storage_path).await;
         let (app, tasks) = A::new(&mut context, &mut headless_ctx, width, height).await;
         let runtime = Runtime::new::<R, A>(headless_ctx, tasks);
         BaseApp{renderer, runtime, context, app}
@@ -158,27 +160,28 @@ macro_rules! create_base_entry_points {
         #[cfg(target_os = "android")]
         #[no_mangle]
         pub fn android_main(app: AndroidApp) {
-            WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start(app);
+            
+            WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start(app);
         }
 
         #[cfg(target_os = "ios")]
         #[no_mangle]
         pub extern "C" fn ios_main() {
-            WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start();
+            WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start();
         }
 
         #[cfg(target_arch = "wasm32")]
         #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
         pub fn wasm_main() {
-            WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start();
+            WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start();
         }
 
         #[cfg(not(any(target_os = "android", target_os="ios", target_arch = "wasm32")))]
         pub fn desktop_main() {
             if std::env::args().len() == 1 {
-                WindowApp::<BaseApp<$renderer, $app>>::new(env!("CARGO_PKG_NAME")).start();
+                WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start();
             } else {
-                BackgroundApp::new_start::<$renderer, $app>(env!("CARGO_PKG_NAME"));
+                BackgroundApp::new_start::<$renderer, $app>(app_storage_path!());
             }
         }
     };

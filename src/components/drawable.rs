@@ -49,7 +49,7 @@ pub struct Text{
     pub max_width: Option<f32>,
     pub font_size: f32,
     pub line_height: f32,
-    pub font: resources::Font
+    pub font: resources::Font,
 }
 
 impl Text {
@@ -71,15 +71,15 @@ impl _Drawable for Text {
         vec![(CanvasArea(offset, Some(bound)), CanvasItem::Text(self.clone().into_inner()))]
     }
 
-    fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, _event: Box<dyn Event>) {
-        // if let Ok(event) = event.downcast::<MouseEvent>() {
-        //     if event.state == MouseState::Pressed && event.position.is_some() {
-        //         if self.color.0 > 0 && self.color.1 == 0 {self.color = Color(0, 255, 0, 255)}
-        //         else if self.color.0 > 0 && self.color.1 > 0 {self.color = Color(255, 0, 0, 255)}
-        //         else if self.color.1 > 0 {self.color = Color(0, 0, 255, 255)}
-        //         else if self.color.2 > 0 {self.color = Color(255, 255, 255, 255)}
-        //     }
-        // }
+    fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
+           if let Ok(event) = event.downcast::<MouseEvent>() {
+               if event.state == MouseState::Pressed && event.position.is_some() {
+                   if self.color.0 > 0 && self.color.1 == 0 {self.color = Color(0, 255, 0, 255)}
+                   else if self.color.0 > 0 && self.color.1 > 0 {self.color = Color(255, 0, 0, 255)}
+                   else if self.color.1 > 0 {self.color = Color(0, 0, 255, 255)}
+                   else if self.color.2 > 0 {self.color = Color(255, 255, 255, 255)}
+               }
+           }
     }
 }
 

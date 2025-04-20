@@ -1,13 +1,19 @@
 use crate::base;
 
-pub use base::renderer::wgpu_canvas::{Canvas, CanvasContext, Color, Image, Font};
+pub use base::renderer::wgpu_canvas::{Canvas, CanvasContext, Color};
+pub use include_dir::include_dir as include_assets;
+pub use include_dir;
+pub use proc::{Component, Plugin};
+
 use base::runtime::{Tasks};
 use base::{BaseAppTrait, HeadlessContext};
 use base::driver::state::State;
-use base::renderer::wgpu_canvas::Area as CanvasArea;
-use base::renderer::wgpu_canvas::CanvasItem;
+use base::renderer::wgpu_canvas as canvas;
+use canvas::Area as CanvasArea;
+use canvas::CanvasItem;
 
-pub use include_dir::{DirEntry, Dir};
+use include_dir::{DirEntry, Dir};
+
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -20,13 +26,14 @@ pub use events::{
     KeyboardEvent, KeyboardState, NamedKey, Key, SmolStr
 };
 
-mod resources;
+pub mod resources;
 
 mod sizing;
 pub use sizing::{Layout, SizeRequest, Area};
 
 mod drawable;
-pub use drawable::*;
+pub use drawable::{Component, Text, Image, Shape, RequestBranch, SizedBranch, Drawable, ShapeType};
+use drawable::{_Drawable};
 
 pub type Assets = Vec<Dir<'static>>;
 
@@ -63,13 +70,13 @@ impl<'a> Context<'a> {
         self.assets.push(dir);
     }
 
-    pub fn add_font(&mut self, font: &[u8]) -> Font {self.base_context.render_ctx().add_font(font)}
-    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {self.base_context.render_ctx().add_image(image)}
-    pub fn load_font(&mut self, file: &str) -> Font {
+    pub fn add_font(&mut self, font: &[u8]) -> canvas::Font {self.base_context.render_ctx().add_font(font)}
+    pub fn add_image(&mut self, image: image::RgbaImage) -> canvas::Image {self.base_context.render_ctx().add_image(image)}
+    pub fn load_font(&mut self, file: &str) -> canvas::Font {
         self.load_file(file).map(|b| self.add_font(&b)).expect("Could not find file")
     }
 
-    pub fn load_image(&mut self, file: &str) -> Image {
+    pub fn load_image(&mut self, file: &str) -> canvas::Image {
         self.load_file(file).map(|b|
             self.add_image(image::load_from_memory(&b).unwrap().into())
         ).expect("Could not find file")

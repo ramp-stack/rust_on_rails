@@ -11,16 +11,17 @@ use winit_crate::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit_crate::event::WindowEvent as WinitWindowEvent;
 use winit_crate::application::ApplicationHandler;
 use winit_crate::window::{Window, WindowId};
+use winit_crate::platform::android::EventLoopBuilderExtAndroid;
 
-
+pub use winit_crate::platform::android::activity::AndroidApp;
 
 pub struct _BackgroundApp;
 impl _BackgroundApp {
-    pub fn start<BA: BackgroundApp + 'static>(name: &str) {
+    pub fn start<BA: BackgroundApp + 'static>(name: &str, app: &AndroidApp) {
         Logger::start(BA::LOG_LEVEL);
         let runtime = Builder::new_current_thread().build().unwrap();
         let (param, tasks) = runtime.block_on(async {
-            let mut ctx = AsyncContext{cache: Cache::new(name).await};
+            let mut ctx = AsyncContext{cache: Cache::new(name, app).await};
             let mut app = BA::new(&mut ctx).await;
             let tasks = app.register_tasks(&mut ctx).await;
             ((app, ctx), tasks)
@@ -39,12 +40,12 @@ pub struct BaseApp<A: BaseAppTrait + 'static> {
 }
 
 impl<A: BaseAppTrait> BaseApp<A> {
-    pub fn new(name: &'static str) -> Self {
+    pub fn new(name: &'static str, app: &AndroidApp) -> Self {
         Logger::start(A::LOG_LEVEL);
         let runtime = Builder::new_multi_thread().worker_threads(1).build().unwrap();
         let (thread, thread_handle) = runtime.block_on(async {
             let tasks = A::register_tasks().await;
-            let cache = Cache::new(name).await;
+            let cache = Cache::new(name, app).await;
             let actx = AsyncContext{cache};
             let (thread, handle) = Thread::new(actx, tasks);
             (thread, handle)
@@ -60,9 +61,14 @@ impl<A: BaseAppTrait> BaseApp<A> {
         }
     }
 
-    pub fn start(mut self) {
-        let event_loop = EventLoop::new().unwrap();
+    pub fn start(mut self, app: AndroidApp) {
+        let event_loop = EventLoop::builder()
+            .with_android_app(app)
+            .build()
+            .unwrap();
+
         event_loop.set_control_flow(ControlFlow::Poll);
+
         event_loop.run_app(&mut self).unwrap();
 
         self.close()
@@ -78,9 +84,6 @@ impl<A: BaseAppTrait> BaseApp<A> {
 }
 
 impl<A: BaseAppTrait + 'static> ApplicationHandler for BaseApp<A> {
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        self.window().request_redraw();
-    }
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
          self.window = Some(Arc::new(event_loop.create_window(
             Window::default_attributes().with_title("orange")
@@ -144,9 +147,11 @@ impl<A: BaseAppTrait + 'static> ApplicationHandler for BaseApp<A> {
 #[macro_export]
 macro_rules! create_app_entry_points {
     ($app:ty, $bg_app:ty) => {
+        #[cfg(target_os = "android")]
         #[no_mangle]
-        pub extern "C" fn ios_main() {
-            BaseApp::<$app>::new(env!("CARGO_PKG_NAME")).start()
+        fn android_main(app: AndroidApp) {
+            let base = BaseApp::<$app>::new(env!("CARGO_PKG_NAME"), &app);
+            base.start(app)
         }
     };
 }
