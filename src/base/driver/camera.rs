@@ -13,18 +13,14 @@ extern "C" {
 pub struct Camera;
 
 impl Camera {
-    pub fn access() -> Result<String, String> {
+    pub fn access() -> String {
         #[cfg(any(target_os = "ios", target_os = "macos"))]
         let camera_access_status = unsafe { check_camera_access() };
         
         #[cfg(any(target_os = "ios", target_os = "macos"))]
-        if !camera_access_status.is_null() {
-            let cstr = unsafe { std::ffi::CStr::from_ptr(camera_access_status) };
-            let status = cstr.to_string_lossy().into_owned();
-            return Ok(status)
-        }
-
-        Err("Failed to get camera access status".to_string())
+        if camera_access_status.is_null() {panic!("Could not get camera status");}
+        let cstr = unsafe { std::ffi::CStr::from_ptr(camera_access_status) };
+        cstr.to_string_lossy().into_owned()
     }
 
     pub fn capture() {
