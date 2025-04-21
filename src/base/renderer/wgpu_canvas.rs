@@ -46,6 +46,10 @@ impl Text {
         ))
     }
 
+    pub fn set_text(&mut self, ctx: &mut impl AsMut<CanvasContext>, text: &str) {
+        self.0.set_text(ctx.as_mut().as_mut(), text)
+    }
+
     pub fn get_size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
         let size = self.0.get_size();
         (ctx.as_mut().scale.logical(size.0),

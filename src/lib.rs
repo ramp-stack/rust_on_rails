@@ -3,6 +3,7 @@ pub use base::{BackgroundApp, HeadlessContext, BaseApp};
 pub use base::runtime::{Task, Tasks, async_trait};
 pub use base::window::WindowApp;
 pub use base::driver::state::{State, Field};
+pub use base::driver::cache::Cache;
 
 #[cfg(feature = "canvas")]
 mod canvas;

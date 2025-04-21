@@ -59,7 +59,7 @@ impl Cache {
         Cache(Arc::new(Mutex::new(db)))
     }
 
-    pub async fn set<F: Field + 'static>(&self, item: F) {
+    pub async fn set<F: Field + 'static>(&self, item: &F) {
         self.0.lock().await.execute(
             "INSERT INTO kvs(key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value;",
             [F::ident(), hex::encode(item.to_bytes())]

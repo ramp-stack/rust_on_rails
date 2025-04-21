@@ -29,7 +29,7 @@ pub use events::{
 pub mod resources;
 
 mod sizing;
-pub use sizing::{Layout, SizeRequest, Area};
+pub use sizing::{Layout, SizeRequest, DefaultStack, Area};
 
 mod drawable;
 pub use drawable::{Component, Text, Image, Shape, RequestBranch, SizedBranch, Drawable, ShapeType};
@@ -90,6 +90,10 @@ impl<'a> Context<'a> {
             )
         )
     }
+}
+
+impl AsMut<CanvasContext> for Context<'_> {
+    fn as_mut(&mut self) -> &mut CanvasContext {self.base_context.render_ctx()}
 }
 
 pub trait Plugin {
