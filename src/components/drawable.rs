@@ -42,42 +42,37 @@ pub(crate) trait _Drawable: Debug {
     fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, _event: Box<dyn Event>) {}
 }
 
-#[derive(Clone, Debug)]
-pub struct Text{
-    pub text: String,
-    pub color: Color,
-    pub max_width: Option<f32>,
-    pub font_size: f32,
-    pub line_height: f32,
-    pub font: resources::Font,
-}
 
-impl Text {
-    pub fn new(text: &str, color: Color, max_width: Option<f32>, font_size: f32, line_height: f32, font: resources::Font) -> Self {
-        Text{text: text.to_string(), color, max_width, font_size, line_height, font}
-    }
+pub use canvas::Text;
+//#[derive(Clone, Debug)]
+//pub struct Text(canvas::Text);
 
-    fn into_inner(self) -> canvas::Text {
-        canvas::Text{text: self.text, color: self.color, width: self.max_width, size: self.font_size, line_height: self.line_height, font: self.font.clone()}
-    }
-}
+//  impl Text {
+//      pub fn new(ctx: &mut Context, text: &str, color: Color, font: resources::Font, font_size: f32, line_height: f32, max_width: Option<f32>) -> Self {
+//          Text(canvas::Text::new(
+//              ctx.base_context,
+//              text, color, font, font_size, line_height, max_width
+//          ))
+//      }
+//  }
 
 impl _Drawable for Text {
     fn request_size(&self, ctx: &mut Context) -> RequestBranch {
-        RequestBranch(SizeRequest::fixed(self.clone().into_inner().size(ctx.base_context)), vec![])
+        RequestBranch(SizeRequest::fixed(self.get_size(ctx.base_context)), vec![])
     }
 
     fn draw(&mut self, _ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)> {
-        vec![(CanvasArea(offset, Some(bound)), CanvasItem::Text(self.clone().into_inner()))]
+        vec![(CanvasArea(offset, Some(bound)), CanvasItem::Text(self.clone()))]
     }
 
     fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
            if let Ok(event) = event.downcast::<MouseEvent>() {
                if event.state == MouseState::Pressed && event.position.is_some() {
-                   if self.color.0 > 0 && self.color.1 == 0 {self.color = Color(0, 255, 0, 255)}
-                   else if self.color.0 > 0 && self.color.1 > 0 {self.color = Color(255, 0, 0, 255)}
-                   else if self.color.1 > 0 {self.color = Color(0, 0, 255, 255)}
-                   else if self.color.2 > 0 {self.color = Color(255, 255, 255, 255)}
+                   let color = self.get_color();
+                   if color.0 > 0 && color.1 == 0 {self.set_color(Color(0, 255, 0, 255))}
+                   else if color.0 > 0 && color.1 > 0 {self.set_color(Color(255, 0, 0, 255))}
+                   else if color.1 > 0 {self.set_color(Color(0, 0, 255, 255))}
+                   else if color.2 > 0 {self.set_color(Color(255, 255, 255, 255))}
                }
            }
     }

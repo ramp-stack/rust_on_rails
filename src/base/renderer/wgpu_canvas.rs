@@ -25,37 +25,35 @@ impl HasScale for CanvasContext {
     fn get_scale(&self) -> &Scale {&self.scale}
 }
 
-#[derive(Clone, Debug)]
-pub struct Text {
-    pub text: String,
-    pub color: Color,
-    pub width: Option<f32>,
-    pub size: f32,
-    pub line_height: f32,
-    pub font: Font,
+impl AsMut<FontAtlas> for CanvasContext {
+    fn as_mut(&mut self) -> &mut FontAtlas {&mut self.font}
 }
 
+#[derive(Clone, Debug)]
+pub struct Text(wgpu_canvas::Text);
+
 impl Text {
-    pub fn new(
+    pub fn new(ctx: &mut impl AsMut<CanvasContext>,
         text: &str, color: Color, font: Font,
         size: f32, line_height: f32, width: Option<f32>
-    ) -> Self {Text{text: text.to_string(), color, width, size, line_height, font}}
-
-    pub fn size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
+    ) -> Self {
         let scale = *ctx.as_mut().get_scale();
-        let size = ctx.as_mut().font.measure_text(&self.clone().scale(&scale));
+        Text(wgpu_canvas::Text::new(
+            ctx.as_mut().as_mut(), text, color, font,
+            scale.physical(size),
+            scale.physical(line_height),
+            width.map(|w| scale.physical(w)),
+        ))
+    }
+
+    pub fn get_size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
+        let size = self.0.get_size();
         (ctx.as_mut().scale.logical(size.0),
         ctx.as_mut().scale.logical(size.1))
     }
 
-    fn scale(self, scale: &Scale) -> wgpu_canvas::Text {
-        wgpu_canvas::Text::new(
-            self.text, self.color, self.font,
-            scale.physical(self.size),
-            scale.physical(self.line_height),
-            self.width.map(|w| scale.physical(w)),
-        )
-    }
+    pub fn get_color(&self) -> &Color {self.0.get_color()}
+    pub fn set_color(&mut self, color: Color) {self.0.set_color(color)}
 }
 
 #[derive(Clone, Debug)]
@@ -74,7 +72,7 @@ impl CanvasItem {
             CanvasItem::Image(shape, image, color) => wgpu_canvas::CanvasItem::Image(
                 Self::scale_shape(shape, scale), image, color
             ),
-            CanvasItem::Text(text) => wgpu_canvas::CanvasItem::Text(text.scale(scale))
+            CanvasItem::Text(text) => wgpu_canvas::CanvasItem::Text(text.0)
         }
     }
 
