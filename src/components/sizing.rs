@@ -63,4 +63,25 @@ impl SizeRequest {
     pub fn add_height(&self, h: f32) -> SizeRequest {
         SizeRequest::new(self.min_width, self.min_height+h, self.max_width, self.max_height+h)
     }
+
+    pub fn max(&self, other: &Self) -> SizeRequest {
+        SizeRequest::new(
+            self.min_width.max(other.min_width),
+            self.min_height.max(other.min_height),
+            self.max_width.max(other.max_width),
+            self.max_height.max(other.max_height)
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DefaultStack;
+impl Layout for DefaultStack {
+    fn request_size(&self, ctx: &mut Context, children: Vec<SizeRequest>) -> SizeRequest {
+        children.into_iter().reduce(|c, o| c.max(&o)).unwrap()
+    }
+
+    fn build(&self, ctx: &mut Context, size: (f32, f32), children: Vec<SizeRequest>) -> Vec<Area> {
+        children.into_iter().map(|c| Area{offset: (0.0, 0.0), size: c.get(size)}).collect()
+    }
 }
