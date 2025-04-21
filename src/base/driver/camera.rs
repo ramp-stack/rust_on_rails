@@ -1,37 +1,34 @@
 use image::{RgbaImage, Rgba};
-#[cfg(any(target_os = "ios", target_os = "macos"))]
-extern "C" {
-    fn start_camera_capture();
-    fn check_camera_access() -> *const std::ffi::c_char;
-    fn get_latest_frame() -> *mut std::ffi::c_void;
-    fn get_latest_frame_stride() -> i32;
-    fn get_initial_frame_size() -> i32;
-    fn get_initial_frame_width() -> i32;
-    fn get_initial_frame_height() -> i32;
+
+pub enum CameraViewError {
+    AccessDenied,
+    FailedToGetFrame
 }
 
+// To get camera, Camera::new()
+// To get frame, camera.frame()
+// impl Drop for Camera and run camera.stop() 
+
+#[derive(Default)]
 pub struct Camera;
 
 impl Camera {
-    pub fn access() -> String {
+    pub fn new() -> Self {
         #[cfg(any(target_os = "ios", target_os = "macos"))]
+        unsafe { start_camera_capture(); }
+        Camera
+    }
+
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    pub fn get_frame(&self) -> Result<RgbaImage, CameraViewError> {
         let camera_access_status = unsafe { check_camera_access() };
-        
-        #[cfg(any(target_os = "ios", target_os = "macos"))]
-        if camera_access_status.is_null() {panic!("Could not get camera status");}
+        if camera_access_status.is_null() {return Err(CameraViewError::FailedToGetFrame)}
         let cstr = unsafe { std::ffi::CStr::from_ptr(camera_access_status) };
-        cstr.to_string_lossy().into_owned()
-    }
 
-    pub fn capture() {
-        #[cfg(any(target_os = "ios", target_os = "macos"))]
-        unsafe {
-            start_camera_capture();
+        if cstr.to_string_lossy().into_owned().as_str() == "AccessDenied" {
+            return Err(CameraViewError::AccessDenied);
         }
-    }
 
-    pub fn get() -> Option<RgbaImage> {
-        #[cfg(any(target_os = "ios", target_os = "macos"))]
         unsafe {
             let ptr = get_latest_frame();
             let size = get_initial_frame_size();
@@ -40,7 +37,7 @@ impl Camera {
             let height = get_initial_frame_height() as u32;
     
             if ptr.is_null() || size <= 0 || width == 0 || height == 0 {
-                return None;
+                return Err(CameraViewError::FailedToGetFrame);
             }
     
             let slice = std::slice::from_raw_parts(ptr as *const u8, size as usize);
@@ -67,10 +64,28 @@ impl Camera {
             }
     
             #[cfg(target_os = "ios")]
-            return Some(image::imageops::rotate90(&image));
+            return Ok(image::imageops::rotate90(&image));
             #[cfg(not(target_os = "ios"))]
-            return Some(image);
+            return Ok(image);
         }
-        None
     }
+
+    pub fn stop(self) { drop(self); }
+}
+
+impl Drop for Camera {
+    fn drop(&mut self) {
+        println!("Stopping Camera");
+    }
+}
+
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+extern "C" {
+    fn start_camera_capture();
+    fn check_camera_access() -> *const std::ffi::c_char;
+    fn get_latest_frame() -> *mut std::ffi::c_void;
+    fn get_latest_frame_stride() -> i32;
+    fn get_initial_frame_size() -> i32;
+    fn get_initial_frame_width() -> i32;
+    fn get_initial_frame_height() -> i32;
 }

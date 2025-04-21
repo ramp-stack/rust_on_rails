@@ -1,14 +1,8 @@
-<<<<<<< HEAD
-pub use crate::base::renderer::wgpu_canvas::{
-    Canvas, CanvasContext, Area, Color, CanvasItem, Shape, Text, Image, Font
-};
-=======
 use wgpu_canvas::CanvasAtlas;
 
 mod structs;
 use structs::Size;
 pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font, Align};
->>>>>>> 2a325e10b5b30a820c368e3e9b0bb05eb8cc45b9
 
 use crate::base;
 use base::driver::state::State;
@@ -61,6 +55,8 @@ impl<'a> Context<'a> {
 
     pub fn add_font(&mut self, font: &[u8]) -> Font {self.base_context.render_ctx().add_font(font)}
     pub fn add_image(&mut self, image: image::RgbaImage) -> Image {self.base_context.render_ctx().add_image(image)}
+
+    pub fn open_camera() -> Camera { Camera::new() }
 }
 
 pub struct CanvasApp<A: App> {

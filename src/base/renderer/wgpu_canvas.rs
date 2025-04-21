@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use super::{Renderer, HasScale, Scale};
 
-pub use wgpu_canvas::{Shape, Color, Image, Font, Area};
+pub use wgpu_canvas::{Shape, Color, Font, Area, Align};
 
 const SAMPLE_COUNT: u32 = 4;
 
@@ -18,7 +18,7 @@ pub struct CanvasContext {
 
 impl CanvasContext {
     pub fn add_font(&mut self, font: &[u8]) -> Font {self.font.add(font)}
-    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {self.image.add(image)}
+    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {Image(self.image.add(image))}
 }
 
 impl HasScale for CanvasContext {
@@ -30,16 +30,34 @@ impl AsMut<FontAtlas> for CanvasContext {
 }
 
 #[derive(Clone, Debug)]
+pub struct Image(wgpu_canvas::Image);
+
+impl Image {
+    pub fn new(ctx: &mut CanvasContext, image: image::RgbaImage) -> Self {
+        Image(ctx.image.add(image))
+    }
+
+    pub fn svg(ctx: &mut CanvasContext, svg: &[u8], scale: f32) -> Self {
+        let svg = std::str::from_utf8(svg).unwrap();
+        let svg = nsvg::parse_str(svg, nsvg::Units::Pixel, 96.0).unwrap();
+        let rgba = svg.rasterize(scale).unwrap();
+        let size = rgba.dimensions();
+        Image::new(ctx, image::RgbaImage::from_raw(size.0, size.1, rgba.into_raw()).unwrap())
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Text(wgpu_canvas::Text);
 
 impl Text {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(ctx: &mut impl AsMut<CanvasContext>,
-        text: &str, color: Color, font: Font,
+        text: &str, color: Color, font: Font, align: Align,
         size: f32, line_height: f32, width: Option<f32>
     ) -> Self {
         let scale = *ctx.as_mut().get_scale();
         Text(wgpu_canvas::Text::new(
-            ctx.as_mut().as_mut(), text, color, font,
+            ctx.as_mut().as_mut(), text, color, font, align,
             scale.physical(size),
             scale.physical(line_height),
             width.map(|w| scale.physical(w)),
@@ -70,7 +88,7 @@ impl CanvasItem {
                 Self::scale_shape(shape, scale), color
             ),
             CanvasItem::Image(shape, image, color) => wgpu_canvas::CanvasItem::Image(
-                Self::scale_shape(shape, scale), image, color
+                Self::scale_shape(shape, scale), image.0, color
             ),
             CanvasItem::Text(text) => wgpu_canvas::CanvasItem::Text(text.0)
         }

@@ -1,6 +1,6 @@
 use crate::base;
 
-pub use base::renderer::wgpu_canvas::{Canvas, CanvasContext, Color};
+pub use base::renderer::wgpu_canvas::{Canvas, CanvasContext, Color, Align};
 pub use include_dir::include_dir as include_assets;
 pub use include_dir;
 pub use proc::{Component, Plugin};

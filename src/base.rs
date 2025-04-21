@@ -75,6 +75,8 @@ impl<R: Renderer> Context<R> {
     pub fn render_ctx(&mut self) -> &mut R::Context {self.as_mut()}
 
     pub fn state(&mut self) -> &mut State {&mut self.state}
+
+    pub fn open_camera() -> Camera { Camera::new() }
   //TODO: pub fn open_camera(...)
 }
 
