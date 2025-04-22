@@ -9,7 +9,7 @@ pub enum CameraViewError {
 // To get frame, camera.frame()
 // impl Drop for Camera and run camera.stop() 
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Camera;
 
 impl Camera {

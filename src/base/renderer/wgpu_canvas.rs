@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use super::{Renderer, HasScale, Scale};
 
-pub use wgpu_canvas::{Shape, Color, Font, Area, Align};
+pub use wgpu_canvas::{Shape, Color, Area, Align};
 
 const SAMPLE_COUNT: u32 = 4;
 
@@ -17,7 +17,7 @@ pub struct CanvasContext {
 }
 
 impl CanvasContext {
-    pub fn add_font(&mut self, font: &[u8]) -> Font {self.font.add(font)}
+    pub fn add_font(&mut self, font: &[u8]) -> Font {Font(self.font.add(font))}
     pub fn add_image(&mut self, image: image::RgbaImage) -> Image {Image(self.image.add(image))}
 }
 
@@ -33,16 +33,25 @@ impl AsMut<FontAtlas> for CanvasContext {
 pub struct Image(wgpu_canvas::Image);
 
 impl Image {
-    pub fn new(ctx: &mut CanvasContext, image: image::RgbaImage) -> Self {
-        Image(ctx.image.add(image))
+    pub fn new(ctx: &mut impl AsMut<CanvasContext>, image: image::RgbaImage) -> Self {
+        Image(ctx.as_mut().image.add(image))
     }
 
-    pub fn svg(ctx: &mut CanvasContext, svg: &[u8], scale: f32) -> Self {
+    pub fn svg(ctx: &mut impl AsMut<CanvasContext>, svg: &[u8], scale: f32) -> Self {
         let svg = std::str::from_utf8(svg).unwrap();
         let svg = nsvg::parse_str(svg, nsvg::Units::Pixel, 96.0).unwrap();
         let rgba = svg.rasterize(scale).unwrap();
         let size = rgba.dimensions();
         Image::new(ctx, image::RgbaImage::from_raw(size.0, size.1, rgba.into_raw()).unwrap())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Font(wgpu_canvas::Font);
+
+impl Font {
+    pub fn new(ctx: &mut impl AsMut<CanvasContext>, font: &[u8]) -> Self {
+        Font(ctx.as_mut().font.add(font))
     }
 }
 
@@ -57,22 +66,23 @@ impl Text {
     ) -> Self {
         let scale = *ctx.as_mut().get_scale();
         Text(wgpu_canvas::Text::new(
-            ctx.as_mut().as_mut(), text, color, font, align,
+            ctx.as_mut().as_mut(), text, color, font.0, align,
             scale.physical(size),
             scale.physical(line_height),
             width.map(|w| scale.physical(w)),
         ))
     }
 
-    pub fn text(&mut self) -> &mut String {&mut self.0.text}
-
-    pub fn color(&mut self) -> &mut Color {&mut self.0.color}
-
     pub fn size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
         let size = self.0.size();
         (ctx.as_mut().scale.logical(size.0),
         ctx.as_mut().scale.logical(size.1))
     }
+
+    pub fn font_size(&mut self) -> &mut f32 {&mut self.0.size}
+    pub fn line_height(&mut self) -> &mut f32 {&mut self.0.line_height}
+    pub fn text(&mut self) -> &mut String {&mut self.0.text}
+    pub fn color(&mut self) -> &mut Color {&mut self.0.color}
 }
 
 #[derive(Clone, Debug)]
