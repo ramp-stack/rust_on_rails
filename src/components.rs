@@ -59,8 +59,6 @@ impl<'a> Context<'a> {
     }
 
     pub fn get<P: Plugin + 'static>(&mut self) -> &mut P {
-        println!("lupugins: {:?}", self.plugins);
-        println!("cdoe: {:?}", self.plugins.get_mut(&TypeId::of::<P>()).unwrap());
         self.plugins.get_mut(&TypeId::of::<P>())
             .unwrap_or_else(|| panic!("Plugin Not Configured: {:?}", std::any::type_name::<P>()))
             .downcast_mut().unwrap()

@@ -74,7 +74,7 @@ impl Text {
     }
 
     pub fn size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
-        let size = self.0.size();
+        let size = self.0.size(ctx.as_mut().as_mut());
         (ctx.as_mut().scale.logical(size.0),
         ctx.as_mut().scale.logical(size.1))
     }
@@ -295,6 +295,7 @@ impl Renderer for Canvas {
         let items = input.into_iter().map(|(a, i)|
             (Self::scale_area(a, &ctx.scale), i.scale(&ctx.scale))
         ).collect();
+        println!("timen; {:?}", items);
 
         self.canvas_renderer.prepare(
             &self.device,
