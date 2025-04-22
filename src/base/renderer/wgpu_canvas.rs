@@ -64,18 +64,15 @@ impl Text {
         ))
     }
 
-    pub fn set_text(&mut self, ctx: &mut impl AsMut<CanvasContext>, text: &str) {
-        self.0.set_text(ctx.as_mut().as_mut(), text)
-    }
+    pub fn text(&mut self) -> &mut String {&mut self.0.text}
 
-    pub fn get_size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
-        let size = self.0.get_size();
+    pub fn color(&mut self) -> &mut Color {&mut self.0.color}
+
+    pub fn size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
+        let size = self.0.size();
         (ctx.as_mut().scale.logical(size.0),
         ctx.as_mut().scale.logical(size.1))
     }
-
-    pub fn get_color(&self) -> &Color {self.0.get_color()}
-    pub fn set_color(&mut self, color: Color) {self.0.set_color(color)}
 }
 
 #[derive(Clone, Debug)]
