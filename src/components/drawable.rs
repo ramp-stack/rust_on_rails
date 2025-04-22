@@ -44,21 +44,9 @@ pub(crate) trait _Drawable: Debug {
 
 
 pub use canvas::Text;
-//#[derive(Clone, Debug)]
-//pub struct Text(canvas::Text);
-
-//  impl Text {
-//      pub fn new(ctx: &mut Context, text: &str, color: Color, font: resources::Font, font_size: f32, line_height: f32, max_width: Option<f32>) -> Self {
-//          Text(canvas::Text::new(
-//              ctx.base_context,
-//              text, color, font, font_size, line_height, max_width
-//          ))
-//      }
-//  }
-
 impl _Drawable for Text {
     fn request_size(&self, ctx: &mut Context) -> RequestBranch {
-        RequestBranch(SizeRequest::fixed(self.get_size(ctx.base_context)), vec![])
+        RequestBranch(SizeRequest::fixed(self.size(ctx.base_context)), vec![])
     }
 
     fn draw(&mut self, _ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)> {
@@ -68,11 +56,11 @@ impl _Drawable for Text {
     fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
            if let Ok(event) = event.downcast::<MouseEvent>() {
                if event.state == MouseState::Pressed && event.position.is_some() {
-                   let color = self.get_color();
-                   if color.0 > 0 && color.1 == 0 {self.set_color(Color(0, 255, 0, 255))}
-                   else if color.0 > 0 && color.1 > 0 {self.set_color(Color(255, 0, 0, 255))}
-                   else if color.1 > 0 {self.set_color(Color(0, 0, 255, 255))}
-                   else if color.2 > 0 {self.set_color(Color(255, 255, 255, 255))}
+                   let color = self.color();
+                   if color.0 > 0 && color.1 == 0 {*color = Color(0, 255, 0, 255)}
+                   else if color.0 > 0 && color.1 > 0 {*color = Color(255, 0, 0, 255)}
+                   else if color.1 > 0 {*color = Color(0, 0, 255, 255)}
+                   else if color.2 > 0 {*color = Color(255, 255, 255, 255)}
                }
            }
     }
