@@ -3,9 +3,6 @@ use super::WindowHandle;
 use std::future::Future;
 use std::sync::Arc;
 
-pub trait HasScale {
-    fn get_scale(&self) -> &Scale;
-}
 ///The Renderer trait is built on top of a Window Initializer
 ///
 ///A Renderers Input should be in logical Pixels
@@ -15,7 +12,7 @@ pub trait HasScale {
 ///of equal size. The width and height are also logically sized
 pub trait Renderer {
     type Input;
-    type Context: HasScale;
+    type Context;
 
     fn get_scale<'a>(&'a self, ctx: &'a Self::Context) -> &'a Scale;
 

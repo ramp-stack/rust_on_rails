@@ -9,6 +9,7 @@ use super::{Context, resources};
 use super::events::*;
 use super::sizing::*;
 
+pub use canvas::{Text, Font, Span, Align, Cursor};
 
 #[derive(Default, Debug, Clone)]
 pub struct RequestBranch(pub SizeRequest, Vec<RequestBranch>);
@@ -43,10 +44,11 @@ pub(crate) trait _Drawable: Debug {
 }
 
 
-pub use canvas::Text;
 impl _Drawable for Text {
     fn request_size(&self, ctx: &mut Context) -> RequestBranch {
-        RequestBranch(SizeRequest::fixed(self.size(ctx.base_context)), vec![])
+        let size = self.size(ctx.base_context.render_ctx());
+        println!("size: {:?}", size);
+        RequestBranch(SizeRequest::fixed(size), vec![])
     }
 
     fn draw(&mut self, _ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)> {
@@ -56,11 +58,13 @@ impl _Drawable for Text {
     fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
            if let Ok(event) = event.downcast::<MouseEvent>() {
                if event.state == MouseState::Pressed && event.position.is_some() {
-                   let color = self.color();
-                   if color.0 > 0 && color.1 == 0 {*color = Color(0, 255, 0, 255)}
-                   else if color.0 > 0 && color.1 > 0 {*color = Color(255, 0, 0, 255)}
-                   else if color.1 > 0 {*color = Color(0, 0, 255, 255)}
-                   else if color.2 > 0 {*color = Color(255, 255, 255, 255)}
+                   self.spans.iter_mut().for_each(|s| {
+                       let color = &mut s.color;
+                       if color.0 > 0 && color.1 == 0 {*color = Color(0, 255, 0, 255)}
+                       else if color.0 > 0 && color.1 > 0 {*color = Color(255, 0, 0, 255)}
+                       else if color.1 > 0 {*color = Color(0, 0, 255, 255)}
+                       else if color.2 > 0 {*color = Color(255, 255, 255, 255)}
+                    });
                }
            }
     }

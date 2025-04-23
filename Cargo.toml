@@ -9,7 +9,7 @@ repository = "https://github.com/CalebCouch/rust_on_rails.git"
 [dependencies]
 log = "0.4.25"
 winit_crate = {package="winit", version="0.30.9", features=["android-native-activity"]}
-wgpu = "24.0.1"
+wgpu = "25.0.0"
 include_dir = {version="0.7.4", features=["glob"]}
 wgpu_canvas = {path="../wgpu_canvas"}
 hex = "0.4.3"

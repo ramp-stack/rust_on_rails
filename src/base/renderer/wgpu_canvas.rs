@@ -1,12 +1,12 @@
-use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, WindowHandle, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue};
+use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, WindowHandle, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue, Trace};
 
 use wgpu_canvas::{CanvasRenderer, ImageAtlas, FontAtlas};
 
 use std::sync::Arc;
 
-use super::{Renderer, HasScale, Scale};
+use super::{Renderer, Scale};
 
-pub use wgpu_canvas::{Shape, Color, Area, Align};
+pub use wgpu_canvas::{Shape, Color, Area, Text, Span, Cursor, Align, Font};
 
 const SAMPLE_COUNT: u32 = 4;
 
@@ -17,12 +17,8 @@ pub struct CanvasContext {
 }
 
 impl CanvasContext {
-    pub fn add_font(&mut self, font: &[u8]) -> Font {Font(self.font.add(font))}
+    pub fn add_font(&mut self, font: &[u8]) -> Font {self.font.add(font)}
     pub fn add_image(&mut self, image: image::RgbaImage) -> Image {Image(self.image.add(image))}
-}
-
-impl HasScale for CanvasContext {
-    fn get_scale(&self) -> &Scale {&self.scale}
 }
 
 impl AsMut<FontAtlas> for CanvasContext {
@@ -47,45 +43,6 @@ impl Image {
 }
 
 #[derive(Clone, Debug)]
-pub struct Font(wgpu_canvas::Font);
-
-impl Font {
-    pub fn new(ctx: &mut impl AsMut<CanvasContext>, font: &[u8]) -> Self {
-        Font(ctx.as_mut().font.add(font))
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Text(wgpu_canvas::Text);
-
-impl Text {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(ctx: &mut impl AsMut<CanvasContext>,
-        text: &str, color: Color, font: Font, align: Align,
-        size: f32, line_height: f32, width: Option<f32>
-    ) -> Self {
-        let scale = *ctx.as_mut().get_scale();
-        Text(wgpu_canvas::Text::new(
-            ctx.as_mut().as_mut(), text, color, font.0, align,
-            scale.physical(size),
-            scale.physical(line_height),
-            width.map(|w| scale.physical(w)),
-        ))
-    }
-
-    pub fn size(&self, ctx: &mut impl AsMut<CanvasContext>) -> (f32, f32) {
-        let size = self.0.size(ctx.as_mut().as_mut());
-        (ctx.as_mut().scale.logical(size.0),
-        ctx.as_mut().scale.logical(size.1))
-    }
-
-    pub fn font_size(&mut self) -> &mut f32 {&mut self.0.size}
-    pub fn line_height(&mut self) -> &mut f32 {&mut self.0.line_height}
-    pub fn text(&mut self) -> &mut String {&mut self.0.text}
-    pub fn color(&mut self) -> &mut Color {&mut self.0.color}
-}
-
-#[derive(Clone, Debug)]
 pub enum CanvasItem {
     Shape(Shape, Color),
     Image(Shape, Image, Option<Color>),
@@ -101,8 +58,19 @@ impl CanvasItem {
             CanvasItem::Image(shape, image, color) => wgpu_canvas::CanvasItem::Image(
                 Self::scale_shape(shape, scale), image.0, color
             ),
-            CanvasItem::Text(text) => wgpu_canvas::CanvasItem::Text(text.0)
+            CanvasItem::Text(text) => wgpu_canvas::CanvasItem::Text(Self::scale_text(text, scale))
         }
+    }
+
+    fn scale_text(text: Text, scale: &Scale) -> Text {
+        Text::new(
+            text.cursor,
+            text.spans.into_iter().map(|s|
+                Span::new(&s.text, scale.physical(s.font_size), scale.physical(s.line_height), s.font, s.color)
+            ).collect(),
+            text.width.map(|w| scale.physical(w)),
+            text.align
+        )
     }
 
     fn scale_shape(shape: Shape, scale: &Scale) -> Shape {
@@ -212,8 +180,8 @@ impl Renderer for Canvas {
                 required_limits: limits,
                 label: None,
                 memory_hints: Default::default(),
-            },
-            None,
+                trace: Trace::Off
+            }
         ).await.unwrap();
 
         let surface_caps = surface.get_capabilities(&adapter);
@@ -295,7 +263,6 @@ impl Renderer for Canvas {
         let items = input.into_iter().map(|(a, i)|
             (Self::scale_area(a, &ctx.scale), i.scale(&ctx.scale))
         ).collect();
-        println!("timen; {:?}", items);
 
         self.canvas_renderer.prepare(
             &self.device,

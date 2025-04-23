@@ -77,11 +77,11 @@ impl SizeRequest {
 #[derive(Debug, Clone, Copy)]
 pub struct DefaultStack;
 impl Layout for DefaultStack {
-    fn request_size(&self, ctx: &mut Context, children: Vec<SizeRequest>) -> SizeRequest {
+    fn request_size(&self, _ctx: &mut Context, children: Vec<SizeRequest>) -> SizeRequest {
         children.into_iter().reduce(|c, o| c.max(&o)).unwrap()
     }
 
-    fn build(&self, ctx: &mut Context, size: (f32, f32), children: Vec<SizeRequest>) -> Vec<Area> {
+    fn build(&self, _ctx: &mut Context, size: (f32, f32), children: Vec<SizeRequest>) -> Vec<Area> {
         children.into_iter().map(|c| Area{offset: (0.0, 0.0), size: c.get(size)}).collect()
     }
 }

@@ -1,6 +1,6 @@
 use crate::base;
 
-pub use base::renderer::wgpu_canvas::{Canvas, CanvasContext, Color, Align};
+pub use base::renderer::wgpu_canvas::{Canvas, CanvasContext, Color};
 pub use include_dir::include_dir as include_assets;
 pub use include_dir;
 pub use proc::{Component, Plugin};
@@ -32,7 +32,7 @@ mod sizing;
 pub use sizing::{Layout, SizeRequest, DefaultStack, Area};
 
 mod drawable;
-pub use drawable::{Component, Text, Image, Shape, RequestBranch, SizedBranch, Drawable, ShapeType};
+pub use drawable::{Component, Text, Font, Span, Cursor, Align, Image, Shape, RequestBranch, SizedBranch, Drawable, ShapeType};
 use drawable::{_Drawable};
 
 pub type Assets = Vec<Dir<'static>>;
@@ -72,14 +72,14 @@ impl<'a> Context<'a> {
 
     pub fn add_font(&mut self, font: &[u8]) -> canvas::Font {self.base_context.render_ctx().add_font(font)}
     pub fn add_image(&mut self, image: image::RgbaImage) -> canvas::Image {self.base_context.render_ctx().add_image(image)}
-    pub fn load_font(&mut self, file: &str) -> canvas::Font {
-        self.load_file(file).map(|b| self.add_font(&b)).expect("Could not find file")
+    pub fn load_font(&mut self, file: &str) -> Option<canvas::Font> {
+        self.load_file(file).map(|b| self.add_font(&b))
     }
 
-    pub fn load_image(&mut self, file: &str) -> canvas::Image {
+    pub fn load_image(&mut self, file: &str) -> Option<canvas::Image> {
         self.load_file(file).map(|b|
             self.add_image(image::load_from_memory(&b).unwrap().into())
-        ).expect("Could not find file")
+        )
     }
     pub fn load_file(&self, file: &str) -> Option<Vec<u8>> {
         self.assets.iter().find_map(|dir|
@@ -94,6 +94,10 @@ impl<'a> Context<'a> {
 
 impl AsMut<CanvasContext> for Context<'_> {
     fn as_mut(&mut self) -> &mut CanvasContext {self.base_context.render_ctx()}
+}
+
+impl AsMut<wgpu_canvas::FontAtlas> for Context<'_> {
+    fn as_mut(&mut self) -> &mut wgpu_canvas::FontAtlas {self.base_context.render_ctx().as_mut()}
 }
 
 pub trait Plugin {
