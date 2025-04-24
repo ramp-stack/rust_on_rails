@@ -47,7 +47,6 @@ pub(crate) trait _Drawable: Debug {
 impl _Drawable for Text {
     fn request_size(&self, ctx: &mut Context) -> RequestBranch {
         let size = self.size(ctx.base_context.render_ctx());
-        println!("size: {:?}", size);
         RequestBranch(SizeRequest::fixed(size), vec![])
     }
 
