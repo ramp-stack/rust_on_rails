@@ -15,7 +15,7 @@ pub trait Event: Debug + DowncastSync {
     ///Function for event to decide on weather to pass the event to a child, Event can also be modified for the child
     fn pass(self: Box<Self>, _ctx: &mut Context, children: Vec<((f32, f32), (f32, f32))>) -> Vec<Option<Box<dyn Event>>>;
 }
-impl_downcast!(sync Event);
+impl_downcast!(sync Event); 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MouseEvent {
