@@ -127,12 +127,10 @@ macro_rules! create_base_entry_points {
         #[cfg(target_os = "ios")]
         #[no_mangle]
         pub extern "C" fn ios_main() {
-            unsafe {
-                let ptr = $crate::get_application_support_dir();
-                if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
-                let c_str = std::ffi::CStr::from_ptr(ptr);
-                let path = std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()));
-            }
+            let ptr = unsafe {$crate::get_application_support_dir()};
+            if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
+            let c_str = unsafe {std::ffi::CStr::from_ptr(ptr)};
+            let path = std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()));
             WindowApp::<RenderApp<$renderer, BaseApp<$renderer, $app>>>::new(path).start();
         }
 
