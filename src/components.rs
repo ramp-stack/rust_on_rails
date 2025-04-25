@@ -66,6 +66,7 @@ impl Context {
 
     pub fn add_font(&mut self, font: &[u8]) -> canvas::Font {self.base_context.as_mut().add_font(font)}
     pub fn add_image(&mut self, image: image::RgbaImage) -> canvas::Image {self.base_context.as_mut().add_image(image)}
+    pub fn add_svg(&mut self, svg: &[u8], quality: f32) -> canvas::Image {self.base_context.as_mut().add_svg(svg, quality)}
     pub fn load_font(&mut self, file: &str) -> Option<canvas::Font> {
         self.load_file(file).map(|b| self.add_font(&b))
     }
