@@ -1,19 +1,17 @@
-use wgpu_canvas::CanvasAtlas;
-
-mod structs;
-use structs::Size;
-pub use structs::{Area, Color, CanvasItem, Shape, Text, Image, Font, Align};
-
 use crate::base;
-use base::driver::state::State;
-use base::BaseAppTrait;
+use crate::base::driver::state::State;
+use crate::base::driver::runtime::Tasks;
+use crate::base::driver::camera::Camera;
+use crate::base::BaseAppTrait;
+
+use crate::base::renderer::wgpu_canvas as canvas;
 
 use std::future::Future;
 use std::time::Instant;
 
-use crate::base::runtime::Tasks;
-
-pub use crate::base::{HeadlessContext, Event, MouseState, KeyboardState, NamedKey, SmolStr, Key};
+pub use canvas::{Canvas, CanvasItem, Area, Image, Text, Font, Shape, Color, Event, Span, Align};
+pub use canvas::{MouseState, KeyboardState, NamedKey, SmolStr, Key, Cursor};
+pub use crate::base::HeadlessContext;
 
 pub trait App {
     fn background_tasks(ctx: &mut HeadlessContext) -> impl Future<Output = Tasks>;
@@ -21,46 +19,37 @@ pub trait App {
     fn on_event(&mut self, ctx: &mut Context<'_>, event: Event);
 }
 
-pub struct Context<'a> {
+pub type Context<'a> = InnerContext<&'a mut base::Context<'a, Canvas>>;
+pub struct InnerContext<T> {//CuttingContext
     size: (f32, f32),
-    components: &'a mut Vec<(Area, CanvasItem)>,
-    base_context: &'a mut base::Context<Canvas>,
+    base_context: T,
 }
 
-impl AsMut<CanvasContext> for Context<'_> {
-    fn as_mut(&mut self) -> &mut CanvasContext {
-        self.base_context.render_ctx()
+impl AsMut<canvas::Context> for Context<'_> {
+    fn as_mut(&mut self) -> &mut canvas::Context {
+        self.base_context.as_mut()
     }
 }
 
-impl<'a> Context<'a> {
+impl<'a> InnerContext<&'a mut base::Context<'a, Canvas>> {
     fn new(
         size: (f32, f32),
-        components: &'a mut Vec<(Area, CanvasItem)>,
-        base_context: &'a mut base::Context<Canvas>
-    ) -> Self {Context{size, components, base_context}}
+        base_context: &'a mut base::Context<'a, Canvas>
+    ) -> Self {InnerContext{size, base_context}}
 
-    pub fn clear(&mut self, color: Color) {
-        self.components.clear();
-        self.components.push((Area((0.0, 0.0), None), CanvasItem::Shape(Shape::Rectangle(0.0, self.size), color)));
-    }
-
-    pub fn draw(&mut self, area: Area, item: CanvasItem) {
-        self.components.push((area, item));
-    }
+    pub fn clear(&mut self, color: Color) {self.base_context.as_mut().clear(color);}
+    pub fn draw(&mut self, area: Area, item: CanvasItem) {self.base_context.as_mut().draw(area, item);}
+    pub fn add_font(&mut self, font: &[u8]) -> Font {self.base_context.as_mut().add_font(font)}
+    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {self.base_context.as_mut().add_image(image)}
 
     pub fn size(&self) -> (f32, f32) {self.size}
-
     pub fn state(&mut self) -> &mut State {self.base_context.state()}
 
-    pub fn add_font(&mut self, font: &[u8]) -> Font {self.base_context.render_ctx().add_font(font)}
-    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {self.base_context.render_ctx().add_image(image)}
 
     pub fn open_camera() -> Camera { Camera::new() }
 }
 
 pub struct CanvasApp<A: App> {
-    components: Vec<(Area, CanvasItem)>,
     size: (f32, f32),
     app: A,
 
@@ -72,13 +61,11 @@ impl<A: App> BaseAppTrait<Canvas> for CanvasApp<A> {
 
     async fn background_tasks(ctx: &mut HeadlessContext) -> Tasks {A::background_tasks(ctx).await}
 
-    async fn new(base_context: &mut base::Context<Canvas>, _ctx: &mut HeadlessContext, width: f32, height: f32) -> (Self, Tasks) {
+    async fn new<'a>(base_context: &'a mut base::Context<'a, Canvas>, _ctx: &mut HeadlessContext, width: f32, height: f32) -> (Self, Tasks) {
         let size = (width, height);
-        let mut components = Vec::new();
-        let mut ctx = Context::new(size, &mut components, base_context);
+        let mut ctx = Context::new(size, base_context);
         let (app, tasks) = A::new(&mut ctx).await;
         (CanvasApp{
-            components,
             size,
             app,
 
@@ -86,19 +73,17 @@ impl<A: App> BaseAppTrait<Canvas> for CanvasApp<A> {
         }, tasks)
     }
 
-    fn on_event(&mut self, base_context: &mut base::Context<Canvas>, event: Event) {
+    fn on_event<'a>(&'a mut self, base_context: &'a mut base::Context<'a, Canvas>, event: Event) {
         match &event {
+            Event::Tick => {
+                log::error!("last_frame: {:?}", self.time.elapsed());
+                self.time = Instant::now();
+            },
             Event::Resumed{width, height} | Event::Resized{width, height} => {self.size = (*width, *height);},
             _ => {}
         };
-        let mut ctx = Context::new(self.size, &mut self.components, base_context);
+        let mut ctx = Context::new(self.size, base_context);
         self.app.on_event(&mut ctx, event);
-        
-    }
-    fn draw(&mut self, _: &mut base::Context<Canvas>) -> Vec<(Area, CanvasItem)> {
-        log::error!("last_frame: {:?}", self.time.elapsed());
-        self.time = Instant::now();
-        self.components.clone()
     }
     async fn close(self) {}
 }

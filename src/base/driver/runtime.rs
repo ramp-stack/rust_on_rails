@@ -1,41 +1,11 @@
-use std::future::Future;
-use std::sync::{Mutex, Arc};
 use std::time::{Instant, Duration};
 use std::sync::mpsc::{TryRecvError, Sender, Receiver, channel};
 
-pub const THREAD_TICK: u64 = 16;
+use crate::base::HeadlessContext;
 
-use super::{HeadlessContext, Renderer, BaseAppTrait};
+const THREAD_TICK: u64 = 16;
+
 pub use async_trait::async_trait;
-
-#[derive(Default)]
-pub struct BlockingFuture<T: 'static>(Arc<Mutex<Option<T>>>);
-impl<T: 'static> BlockingFuture<T> {
-    pub fn unwrap(self) -> T {
-        Arc::into_inner(self.0).unwrap().into_inner().unwrap().unwrap()
-    }
-}
-
-pub struct BlockingRuntime;
-impl BlockingRuntime {
-    pub fn block_on<T: 'static>(task: impl Future<Output = T>) -> BlockingFuture<T> {
-        #[cfg(not(target_arch="wasm32"))]
-        let future = BlockingFuture(Arc::new(Mutex::new(Some(
-            //Take current thread and block untill future completes
-            tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(task)
-        ))));
-
-        #[cfg(target_arch="wasm32")]
-        let future = BlockingFuture::default();
-
-        #[cfg(target_arch="wasm32")]
-        let arcm = future.0.clone();
-        #[cfg(target_arch="wasm32")]
-        wasm_bindgen_futures::spawn_local(async move {*arcm.lock().unwrap() = Some(task.await);});
-
-        future
-    }
-}
 
 #[async_trait]
 pub trait Task: Send {
@@ -82,22 +52,21 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn new_background(ctx: HeadlessContext, tasks: Tasks) {
-        BlockingRuntime::block_on(Self::background_thread(TaskManager::new(ctx, tasks)));
+    pub async fn new_background(ctx: HeadlessContext, tasks: Tasks) {
+        Self::background_thread(TaskManager::new(ctx, tasks)).await
     }
 
-    pub fn new<R: Renderer, A: BaseAppTrait<R>>(
-        ctx: HeadlessContext, tasks: Tasks
+    pub async fn new(
+        ctx: HeadlessContext, background_tasks: Tasks, tasks: Tasks
     ) -> Self {
-        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(1).build().unwrap();
-        #[cfg(any(target_os = "ios", target_os = "android"))]
-        {
-            let tasks = runtime.block_on(A::background_tasks(&mut ctx));
-            let task_manager = TaskManager::new(ctx.clone(), tasks);
-            runtime.spawn(Self::background_thread(task_manager))
+        let threads = if cfg!(any(target_os = "ios", target_os = "android")) {2} else {1};
+        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(threads).build().unwrap();
+
+        if !background_tasks.is_empty() {
+            let task_manager = TaskManager::new(ctx.clone(), background_tasks);
+            runtime.spawn(Self::background_thread(task_manager));
         }
 
-        ;
         let (active_thread, receiver) = channel();
         runtime.spawn(Self::thread(TaskManager::new(ctx, tasks), receiver));
 

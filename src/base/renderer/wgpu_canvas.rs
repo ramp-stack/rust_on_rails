@@ -1,46 +1,78 @@
-use wgpu::{RenderPassDepthStencilAttachment, RenderPassColorAttachment, CommandEncoderDescriptor, TextureViewDescriptor, RequestAdapterOptions, SurfaceConfiguration, RenderPassDescriptor, InstanceDescriptor, DepthStencilState, TextureDescriptor, TextureDimension, MultisampleState, DeviceDescriptor, PowerPreference, CompareFunction, WindowHandle, DepthBiasState, TextureUsages, TextureFormat, StencilState, TextureView, Operations, Instance, Features, Extent3d, Surface, StoreOp, LoadOp, Limits, Device, Queue, Trace};
+use wgpu_canvas::{ImageAtlas, FontAtlas};
 
-use wgpu_canvas::{CanvasRenderer, ImageAtlas, FontAtlas};
+use super::{Renderer, RenderAppTrait, HasLifeEvents};
+use crate::base::window::{WindowHandle, WindowEvent};
 
-use std::sync::Arc;
+pub use wgpu_canvas::{Shape, Color, Area, Text, Span, Cursor, Align, Font, Image};
+pub use crate::base::window::{MouseState, KeyboardState, NamedKey, SmolStr, Key};
 
-use super::{Renderer, Scale};
-
-pub use wgpu_canvas::{Shape, Color, Area, Text, Span, Cursor, Align, Font};
-
-const SAMPLE_COUNT: u32 = 4;
-
-pub struct CanvasContext {
-    scale: Scale,
-    image: ImageAtlas,
-    font: FontAtlas
-}
-
-impl CanvasContext {
-    pub fn add_font(&mut self, font: &[u8]) -> Font {self.font.add(font)}
-    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {Image(self.image.add(image))}
-}
-
-impl AsMut<FontAtlas> for CanvasContext {
-    fn as_mut(&mut self) -> &mut FontAtlas {&mut self.font}
-}
-
-#[derive(Clone, Debug)]
-pub struct Image(wgpu_canvas::Image);
-
-impl Image {
-    pub fn new(ctx: &mut impl AsMut<CanvasContext>, image: image::RgbaImage) -> Self {
-        Image(ctx.as_mut().image.add(image))
+#[derive(Debug, Clone, Copy)]
+pub struct Scale(f64);
+impl Scale {
+    pub fn physical(&self, x: f32) -> f32 {
+        (x as f64 * self.0) as f32
     }
 
-    pub fn svg(ctx: &mut impl AsMut<CanvasContext>, svg: &[u8], scale: f32) -> Self {
+    pub fn logical(&self, x: f32) -> f32 {
+        (x as f64 / self.0) as f32
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Event {
+    Resized{width: f32, height: f32},
+    Mouse{position: (f32, f32), state: MouseState},
+    Keyboard{key: Key, state: KeyboardState},
+    Resumed{width: f32, height: f32},
+    Paused,
+    Tick
+}
+
+impl HasLifeEvents for Event {
+    fn is_resumed(&self) -> bool {matches!(self, Event::Resumed{..})}
+    fn is_paused(&self) -> bool {matches!(self, Event::Paused)}
+}
+
+pub struct Context{
+    scale: Scale,
+    image: ImageAtlas,
+    font: FontAtlas,
+    components: Vec<(Area, wgpu_canvas::CanvasItem)>,
+    size: (f32, f32)
+}
+impl Context {
+    pub fn add_font(&mut self, font: &[u8]) -> Font {self.font.add(font)}
+    pub fn add_image(&mut self, image: image::RgbaImage) -> Image {self.image.add(image)}
+    pub fn add_svg(&mut self, svg: &[u8], scale: f32) -> Image {
         let svg = std::str::from_utf8(svg).unwrap();
         let svg = nsvg::parse_str(svg, nsvg::Units::Pixel, 96.0).unwrap();
         let rgba = svg.rasterize(scale).unwrap();
         let size = rgba.dimensions();
-        Image::new(ctx, image::RgbaImage::from_raw(size.0, size.1, rgba.into_raw()).unwrap())
+        self.image.add(image::RgbaImage::from_raw(size.0, size.1, rgba.into_raw()).unwrap())
+    }
+    pub fn size(&self) -> (f32, f32) {self.size}
+    pub fn draw(&mut self, area: Area, item: CanvasItem) {
+        let area = Area(
+            (self.scale.physical(area.0.0), self.scale.physical(area.0.1)),
+            area.1.map(|(x, y, w, h)| (
+                self.scale.physical(x), self.scale.physical(y),
+                self.scale.physical(w), self.scale.physical(h)
+            ))
+        );
+        self.components.push((area, item.scale(&self.scale)));
+    }
+
+    pub fn clear(&mut self, color: Color) {
+        self.components.clear();
+        self.components.push((Area((0.0, 0.0), None),
+            wgpu_canvas::CanvasItem::Shape(Shape::Rectangle(0.0,
+                (self.scale.physical(self.size.0), self.scale.physical(self.size.1))
+            ), color)
+        ));
     }
 }
+impl AsMut<FontAtlas> for Context {fn as_mut(&mut self) -> &mut FontAtlas {&mut self.font}}
+impl AsMut<ImageAtlas> for Context {fn as_mut(&mut self) -> &mut ImageAtlas {&mut self.image}}
 
 #[derive(Clone, Debug)]
 pub enum CanvasItem {
@@ -56,7 +88,7 @@ impl CanvasItem {
                 Self::scale_shape(shape, scale), color
             ),
             CanvasItem::Image(shape, image, color) => wgpu_canvas::CanvasItem::Image(
-                Self::scale_shape(shape, scale), image.0, color
+                Self::scale_shape(shape, scale), image, color
             ),
             CanvasItem::Text(text) => wgpu_canvas::CanvasItem::Text(Self::scale_text(text, scale))
         }
@@ -88,222 +120,54 @@ impl CanvasItem {
     }
 }
 
-pub struct Canvas {
-    instance: Instance,
-    surface: Surface<'static>,
-    device: Device,
-    queue: Queue,
-    config: SurfaceConfiguration,
-    msaa_view: Option<TextureView>,
-    depth_view: TextureView,
-    canvas_renderer: CanvasRenderer,
-}
-
-impl Canvas {
-    fn create_msaa_view(device: &Device, config: &SurfaceConfiguration) -> TextureView {
-        device.create_texture(&TextureDescriptor{
-            label: Some("Multisampled frame descriptor"),
-            size: Extent3d {
-                width: config.width,
-                height: config.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: SAMPLE_COUNT,
-            dimension: TextureDimension::D2,
-            format: config.format,
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        })
-        .create_view(&TextureViewDescriptor::default())
-    }
-
-    fn create_depth_view(device: &Device, config: &SurfaceConfiguration) -> TextureView {
-        device.create_texture(&TextureDescriptor {
-            label: Some("Depth Stencil Texture"),
-            size: Extent3d { // 2.
-                width: config.width,
-                height: config.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: SAMPLE_COUNT,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Depth32Float,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        })
-        .create_view(&TextureViewDescriptor::default())
-    }
-
-    fn scale_area(area: Area, scale: &Scale) -> Area {
-        Area(
-            (scale.physical(area.0.0), scale.physical(area.0.1)),
-            area.1.map(|(x, y, w, h)| (
-                scale.physical(x), scale.physical(y),
-                scale.physical(w), scale.physical(h)
-            ))
-        )
-    }
-}
+mod wgpu;
+pub use wgpu::Canvas;
 
 impl Renderer for Canvas {
-    type Input = Vec<(Area, CanvasItem)>;
-    type Context = CanvasContext;
-
-    fn get_scale<'a>(&'a self, ctx: &'a Self::Context) -> &'a Scale {&ctx.scale}
+    type Context = Context;
+    type Event = Event;
 
     async fn new<W: WindowHandle + 'static>(
         window: W, width: u32, height: u32, scale_factor: f64
     ) -> (Self, Self::Context, (f32, f32)) {
-        let instance = Instance::new(&InstanceDescriptor::default());
-
-        let surface = instance.create_surface(window).unwrap();
-
-        let adapter = instance.request_adapter(
-            &RequestAdapterOptions {
-                power_preference: PowerPreference::None,
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            },
-        ).await.unwrap();
-
-        let mut limits = Limits::downlevel_webgl2_defaults();
-        limits.max_texture_dimension_2d = 8192;
-
-        let width = width.min(limits.max_texture_dimension_2d);
-        let height = height.min(limits.max_texture_dimension_2d);
-
-        let (device, queue) = adapter.request_device(
-            &DeviceDescriptor {
-                required_features: Features::empty(),
-                required_limits: limits,
-                label: None,
-                memory_hints: Default::default(),
-                trace: Trace::Off
-            }
-        ).await.unwrap();
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            width,
-            height,
-            format: surface_caps.formats[0],
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![surface_caps.formats[0]],
-            desired_maximum_frame_latency: 2,
-        };
-
-        surface.configure(&device, &config);
-
-        let multisample = MultisampleState {
-            count: SAMPLE_COUNT,
-            mask: !0,
-            alpha_to_coverage_enabled: true,
-        };
-
-        let depth_stencil = DepthStencilState {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::GreaterEqual,
-            stencil: StencilState::default(),
-            bias: DepthBiasState::default(),
-        };
-
-        let msaa_view = (SAMPLE_COUNT > 1).then(|| Self::create_msaa_view(&device, &config));
-
-        let depth_view = Self::create_depth_view(&device, &config);
-
-        let canvas_renderer = CanvasRenderer::new(&queue, &device, &surface_caps.formats[0], multisample, Some(depth_stencil));
-
+        let (canvas, size) = Self::inner_new(window, width, height).await;
         let scale = Scale(scale_factor);
-        let size = (scale.logical(width as f32), scale.logical(height as f32));
-        (Canvas{
-            instance,
-            surface,
-            device,
-            queue,
-            config,
-            msaa_view,
-            depth_view,
-            canvas_renderer,
-        }, 
-        CanvasContext{
-            scale,
-            image: ImageAtlas::default(),
-            font: FontAtlas::default()
-        }, size)
+        let size = (scale.logical(size.0 as f32), scale.logical(size.1 as f32));
+        let ctx = Context{scale, image: ImageAtlas::default(), font: FontAtlas::default(), components: Vec::new(), size};
+        (canvas, ctx, size)
     }
-
-    async fn resize<W: WindowHandle + 'static>(
-        &mut self, ctx: &mut Self::Context, new_window: Option<Arc<W>>, width: u32, height: u32, scale_factor: f64
-    ) -> (f32, f32) {
-        ctx.scale.0 = scale_factor;
-        if let Some(new_window) = new_window {
-            self.surface = self.instance.create_surface(new_window).unwrap();
-        }
-        if width > 0 && height > 0 {
-            let limits = self.device.limits();
-            self.config.width = width.min(limits.max_texture_dimension_2d);
-            self.config.height = height.min(limits.max_texture_dimension_2d);
-            self.surface.configure(&self.device, &self.config);
-            if SAMPLE_COUNT > 1 {
-                self.msaa_view = Some(Self::create_msaa_view(&self.device, &self.config));
+        
+    async fn on_event<W: WindowHandle, A: RenderAppTrait<Self>>(
+        &mut self, ctx: &mut Self::Context, app: &mut A, event: WindowEvent<W>
+    ) {
+        let draw =  matches!(event, WindowEvent::Tick);
+        let r_event = match event {
+            WindowEvent::Resized{width, height, scale_factor} => {
+                ctx.scale.0 = scale_factor;
+                let size = self.resize::<W>(None, width, height);
+                let size = (ctx.scale.logical(size.0 as f32), ctx.scale.logical(size.1 as f32));
+                ctx.size = size;
+                Event::Resized{width: size.0, height: size.1}
+            },
+            WindowEvent::Mouse{position, state} => {
+                Event::Mouse{position: (
+                    ctx.scale.logical(position.0 as f32), ctx.scale.logical(position.1 as f32)
+                ), state}
             }
-            self.depth_view = Self::create_depth_view(&self.device, &self.config);
-        }
-
-        (ctx.scale.logical(self.config.width as f32), ctx.scale.logical(self.config.height as f32))
+            WindowEvent::Keyboard{key, state} => Event::Keyboard{key, state},
+            WindowEvent::Resumed{window, width, height, scale_factor} => {
+                ctx.scale.0 = scale_factor;
+                let size = self.resize(Some(window.into()), width, height);
+                let size = (ctx.scale.logical(size.0 as f32), ctx.scale.logical(size.1 as f32));
+                ctx.size = size;
+                Event::Resumed{width: size.0, height: size.1}
+            },
+            WindowEvent::Paused => Event::Paused,
+            WindowEvent::Tick => Event::Tick
+        };
+        app.on_event(ctx, r_event).await;
+        if draw {self.draw(&mut ctx.image, &mut ctx.font, ctx.components.drain(..).collect::<Vec<_>>());}
     }
 
-    async fn draw(&mut self, ctx: &mut Self::Context, input: Self::Input) {
-        let items = input.into_iter().map(|(a, i)|
-            (Self::scale_area(a, &ctx.scale), i.scale(&ctx.scale))
-        ).collect();
-
-        self.canvas_renderer.prepare(
-            &self.device,
-            &self.queue,
-            self.config.width as f32,
-            self.config.height as f32,
-            &mut ctx.image,
-            &mut ctx.font,
-            items
-        );
-
-        let output = self.surface.get_current_texture().unwrap();
-        let frame_view = output.texture.create_view(&TextureViewDescriptor::default());
-        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor::default());
-        let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
-            label: Some("Render Pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: if SAMPLE_COUNT > 1 {self.msaa_view.as_ref().unwrap()} else {&frame_view},
-                resolve_target: if SAMPLE_COUNT > 1 {Some(&frame_view)} else {None},
-                ops: Operations {
-                    load: LoadOp::Clear(wgpu::Color::BLACK),
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &self.depth_view,
-                depth_ops: Some(Operations {
-                    load: LoadOp::Clear(0.0),
-                    store: StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
-            occlusion_query_set: None,
-            timestamp_writes: None,
-        });
-
-        self.canvas_renderer.render(&mut rpass);
-
-        drop(rpass);
-
-        self.queue.submit(Some(encoder.finish()));
-        output.present();
-    }
+    async fn close(self, _ctx: Self::Context) {}
 }

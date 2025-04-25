@@ -1,8 +1,6 @@
+use std::future::Future;
 use std::path::PathBuf;
-use std::sync::Arc;
-
-
-use crate::base::runtime::{BlockingRuntime, BlockingFuture};
+use std::sync::{Mutex, Arc};
 
 use winit_crate::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit_crate::event::{ElementState, WindowEvent as WinitWindowEvent, TouchPhase, Touch};
@@ -10,6 +8,35 @@ use winit_crate::application::ApplicationHandler;
 use winit_crate::window::{Window, WindowId};
 
 use super::{WindowAppTrait, WindowEvent, MouseState, KeyboardState};
+
+#[derive(Default)]
+pub struct BlockingFuture<T: 'static>(Arc<Mutex<Option<T>>>);
+impl<T: 'static> BlockingFuture<T> {
+    pub fn unwrap(self) -> T {
+        Arc::into_inner(self.0).unwrap().into_inner().unwrap().unwrap()
+    }
+}
+
+pub struct BlockingRuntime;
+impl BlockingRuntime {
+    pub fn block_on<T: 'static>(task: impl Future<Output = T>) -> BlockingFuture<T> {
+        #[cfg(not(target_arch="wasm32"))]
+        let future = BlockingFuture(Arc::new(Mutex::new(Some(
+            //Take current thread and block untill future completes
+            tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(task)
+        ))));
+
+        #[cfg(target_arch="wasm32")]
+        let future = BlockingFuture::default();
+
+        #[cfg(target_arch="wasm32")]
+        let arcm = future.0.clone();
+        #[cfg(target_arch="wasm32")]
+        wasm_bindgen_futures::spawn_local(async move {*arcm.lock().unwrap() = Some(task.await);});
+
+        future
+    }
+}
 
 pub struct Winit<A: WindowAppTrait + 'static> {
     scale_factor: f64,
