@@ -15,10 +15,10 @@ pub mod prelude {
     pub use crate::canvas::*;
 }
 
-//  #[cfg(feature = "components")]
-//  mod components;
-//  #[cfg(feature = "components")]
-//  pub mod prelude {
-//      pub use crate::*;
-//      pub use crate::components::*;
-//  }
+#[cfg(feature = "components")]
+mod components;
+#[cfg(feature = "components")]
+pub mod prelude {
+    pub use crate::*;
+    pub use crate::components::*;
+}

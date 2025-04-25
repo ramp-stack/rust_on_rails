@@ -19,10 +19,9 @@ pub trait App {
     fn on_event(&mut self, ctx: &mut Context<'_>, event: Event);
 }
 
-pub type Context<'a> = InnerContext<&'a mut base::Context<'a, Canvas>>;
-pub struct InnerContext<T> {//CuttingContext
+pub struct Context<'a> {//CuttingContext
     size: (f32, f32),
-    base_context: T,
+    base_context: &'a mut base::Context<'a, Canvas>,
 }
 
 impl AsMut<canvas::Context> for Context<'_> {
@@ -31,11 +30,11 @@ impl AsMut<canvas::Context> for Context<'_> {
     }
 }
 
-impl<'a> InnerContext<&'a mut base::Context<'a, Canvas>> {
+impl<'a> Context<'a> {
     fn new(
         size: (f32, f32),
         base_context: &'a mut base::Context<'a, Canvas>
-    ) -> Self {InnerContext{size, base_context}}
+    ) -> Self {Context{size, base_context}}
 
     pub fn clear(&mut self, color: Color) {self.base_context.as_mut().clear(color);}
     pub fn draw(&mut self, area: Area, item: CanvasItem) {self.base_context.as_mut().draw(area, item);}

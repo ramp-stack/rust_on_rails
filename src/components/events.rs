@@ -1,5 +1,5 @@
 use super::{Context};
-pub use crate::base::{MouseState, KeyboardState, NamedKey, Key, SmolStr};
+pub use crate::base::renderer::wgpu_canvas::{MouseState, KeyboardState, NamedKey, Key, SmolStr};
 
 use downcast_rs::{DowncastSync, impl_downcast};
 

@@ -17,11 +17,12 @@ pub use renderer::*;
 pub trait BaseAppTrait<R: Renderer> {
     const LOG_LEVEL: log::Level;
     fn background_tasks(ctx: &mut HeadlessContext) -> impl Future<Output = Tasks> where Self: Sized;
-    fn new<'a>(
-        ctx: &'a mut Context<'a, R>, h_ctx: &mut HeadlessContext, width: f32, height: f32
+    fn new(
+        ctx: Context<R>, h_ctx: &mut HeadlessContext, width: f32, height: f32
     ) -> impl Future<Output = (Self, Tasks)> where Self: Sized;
-    fn on_event<'a>(&'a mut self, ctx: &'a mut Context<'a, R>, event: R::Event);
-    fn close(self) -> impl Future<Output = ()>;
+    fn on_event(&mut self, event: R::Event);
+    fn close(self) -> impl Future<Output = Context<R>>;
+    fn ctx(&mut self) -> &mut Context<R>;
 }
 
 #[derive(Debug, Clone)]
@@ -37,22 +38,21 @@ impl HeadlessContext {
     }
 }
 
-pub struct Context<'a, R: Renderer> {//CookingContext<'a>
-    pub cache: &'a mut Cache,
-    pub state: &'a mut State,
-    pub r_ctx: &'a mut R::Context//Kitchen
+pub struct Context<R: Renderer> {
+    state: State,
+    r_ctx: R::Context
 }
 
-impl<R: Renderer> AsMut<R::Context> for Context<'_, R> {
-    fn as_mut(&mut self) -> &mut R::Context {self.r_ctx}
+impl<R: Renderer> AsMut<R::Context> for Context<R> {
+    fn as_mut(&mut self) -> &mut R::Context {&mut self.r_ctx}
 }
 
-impl<'a, R: Renderer> Context<'a, R> {
-    fn new(cache: &'a mut Cache, state: &'a mut State, r_ctx: &'a mut R::Context) -> Self {
-        Context{cache, state, r_ctx}
+impl<R: Renderer> Context<R> {
+    fn new(r_ctx: R::Context) -> Self {
+        Context{state: State::default(), r_ctx}
     }
 
-    pub fn state(&mut self) -> &mut State {self.state}
+    pub fn state(&mut self) -> &mut State {&mut self.state}
 
     pub fn open_camera() -> Camera { Camera::new() }
 }
@@ -79,38 +79,39 @@ impl BackgroundApp {
 pub struct BaseApp<R: Renderer, A: BaseAppTrait<R>> {
     _p: std::marker::PhantomData<R>,
     runtime: Runtime,
-    cache: Cache,
-    state: State,
     app: A
 }
 
 impl<R: Renderer, A: BaseAppTrait<R>> RenderAppTrait<R> for BaseApp<R, A> {
     async fn new(
-        storage_path: PathBuf, ctx: &mut R::Context, width: f32, height: f32
+        storage_path: PathBuf, ctx: R::Context, width: f32, height: f32
     ) -> Self {
         Logger::start(A::LOG_LEVEL);        
         let mut headless_ctx = HeadlessContext::new(storage_path.clone()).await;
-        let mut cache = Cache::new(storage_path).await;
-        let mut state = State::default();
+        let ctx = Context::new(ctx);
         let background_tasks = if cfg!(any(target_os = "ios", target_os = "android")) {
             A::background_tasks(&mut headless_ctx).await
         } else {vec![]};
-        let mut ctx = Context::new(&mut cache, &mut state, ctx);
-        let (app, tasks) = A::new(&mut ctx, &mut headless_ctx, width, height).await;
+        let (app, tasks) = A::new(ctx, &mut headless_ctx, width, height).await;
         let runtime = Runtime::new(headless_ctx, background_tasks, tasks).await;
         BaseApp{
             _p: std::marker::PhantomData::<R>,
-            runtime, cache, state, app
+            runtime, app
         }
     }
-    async fn on_event(&mut self, ctx: &mut R::Context, event: R::Event) {
+    async fn on_event(&mut self, event: R::Event) {
         if event.is_paused() {self.runtime.pause();}
         if event.is_resumed() {self.runtime.resume();}
-        let mut ctx = Context::new(&mut self.cache, &mut self.state, ctx);
-        self.app.on_event(&mut ctx, event);
+        self.app.on_event(event);
     }
 
-    async fn close(mut self, _ctx: &mut R::Context) {self.app.close().await; self.runtime.close()}
+    async fn close(mut self) -> R::Context {
+        let ctx = self.app.close().await;
+        self.runtime.close();
+        ctx.r_ctx
+    }
+
+    fn ctx(&mut self) -> &mut R::Context {&mut self.app.ctx().r_ctx}
 }
 
 #[macro_export]

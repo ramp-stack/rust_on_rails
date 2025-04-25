@@ -138,8 +138,9 @@ impl Renderer for Canvas {
     }
         
     async fn on_event<W: WindowHandle, A: RenderAppTrait<Self>>(
-        &mut self, ctx: &mut Self::Context, app: &mut A, event: WindowEvent<W>
+        &mut self, app: &mut A, event: WindowEvent<W>
     ) {
+        let ctx = app.ctx();
         let draw =  matches!(event, WindowEvent::Tick);
         let r_event = match event {
             WindowEvent::Resized{width, height, scale_factor} => {
@@ -165,7 +166,8 @@ impl Renderer for Canvas {
             WindowEvent::Paused => Event::Paused,
             WindowEvent::Tick => Event::Tick
         };
-        app.on_event(ctx, r_event).await;
+        app.on_event(r_event).await;
+        let ctx = app.ctx();
         if draw {self.draw(&mut ctx.image, &mut ctx.font, ctx.components.drain(..).collect::<Vec<_>>());}
     }
 

@@ -1,6 +1,6 @@
 use crate::base;
 use base::renderer::wgpu_canvas as canvas;
-use canvas::{CanvasItem, Color};
+use canvas::CanvasItem;
 use canvas::Area as CanvasArea;
 
 use std::fmt::Debug;
@@ -9,7 +9,7 @@ use super::{Context, resources};
 use super::events::*;
 use super::sizing::*;
 
-pub use canvas::{Text, Font, Span, Align, Cursor};
+pub use canvas::{Text, Font, Span, Align, Cursor, Color};
 
 #[derive(Default, Debug, Clone)]
 pub struct RequestBranch(pub SizeRequest, Vec<RequestBranch>);
@@ -36,7 +36,7 @@ pub(crate) trait _Drawable: Debug {
     fn build(&mut self, _ctx: &mut Context, size: Size, request: RequestBranch) -> SizedBranch {
         SizedBranch(request.0.get(size), vec![])
     }
-    fn draw(&mut self, ctx: &mut Context, sized: SizedBranch, offset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)>;
+    fn draw(&mut self, ctx: &mut Context, sized: SizedBranch, offset: Offset, bound: Rect);
 
     fn name(&self) -> String {std::any::type_name_of_val(self).to_string()}
 
@@ -46,26 +46,26 @@ pub(crate) trait _Drawable: Debug {
 
 impl _Drawable for Text {
     fn request_size(&self, ctx: &mut Context) -> RequestBranch {
-        let size = self.size(ctx.base_context.render_ctx());
+        let size = self.size(ctx.as_canvas());
         RequestBranch(SizeRequest::fixed(size), vec![])
     }
 
-    fn draw(&mut self, _ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)> {
-        vec![(CanvasArea(offset, Some(bound)), CanvasItem::Text(self.clone()))]
+    fn draw(&mut self, ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) {
+        ctx.as_canvas().draw(CanvasArea(offset, Some(bound)), CanvasItem::Text(self.clone()));
     }
 
     fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
-           if let Ok(event) = event.downcast::<MouseEvent>() {
-               if event.state == MouseState::Pressed && event.position.is_some() {
-                   self.spans.iter_mut().for_each(|s| {
-                       let color = &mut s.color;
-                       if color.0 > 0 && color.1 == 0 {*color = Color(0, 255, 0, 255)}
-                       else if color.0 > 0 && color.1 > 0 {*color = Color(255, 0, 0, 255)}
-                       else if color.1 > 0 {*color = Color(0, 0, 255, 255)}
-                       else if color.2 > 0 {*color = Color(255, 255, 255, 255)}
-                    });
-               }
+       if let Ok(event) = event.downcast::<MouseEvent>() {
+           if event.state == MouseState::Pressed && event.position.is_some() {
+               self.spans.iter_mut().for_each(|s| {
+                   let color = &mut s.color;
+                   if color.0 > 0 && color.1 == 0 {*color = Color(0, 255, 0, 255)}
+                   else if color.0 > 0 && color.1 > 0 {*color = Color(255, 0, 0, 255)}
+                   else if color.1 > 0 {*color = Color(0, 0, 255, 255)}
+                   else if color.2 > 0 {*color = Color(255, 255, 255, 255)}
+                });
            }
+       }
     }
 }
 
@@ -79,9 +79,9 @@ pub struct Shape {
 impl _Drawable for Shape {
     fn request_size(&self, _ctx: &mut Context) -> RequestBranch {RequestBranch(SizeRequest::fixed(self.shape.size()), vec![])}
 
-    fn draw(&mut self, _ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)> {
+    fn draw(&mut self, ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) {
         //TODO: use sized.0 as the size of the shape?
-       vec![(CanvasArea(offset, Some(bound)), CanvasItem::Shape(self.shape, self.color))]
+       ctx.as_canvas().draw(CanvasArea(offset, Some(bound)), CanvasItem::Shape(self.shape, self.color));
     }
 }
 
@@ -95,8 +95,8 @@ pub struct Image {
 impl _Drawable for Image {
     fn request_size(&self, _ctx: &mut Context) -> RequestBranch {RequestBranch(SizeRequest::fixed(self.shape.size()), vec![])}
 
-    fn draw(&mut self, _ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)> {
-        vec![(CanvasArea(offset, Some(bound)), CanvasItem::Image(self.shape, self.image.clone(), self.color))]
+    fn draw(&mut self, ctx: &mut Context, _sized: SizedBranch, offset: Offset, bound: Rect) {
+        ctx.as_canvas().draw(CanvasArea(offset, Some(bound)), CanvasItem::Image(self.shape, self.image.clone(), self.color));
     }
 }
 
@@ -128,8 +128,8 @@ impl<C: Component + ?Sized + 'static + OnEvent> _Drawable for C {
         )
     }
 
-    fn draw(&mut self, ctx: &mut Context, sized: SizedBranch, poffset: Offset, bound: Rect) -> Vec<(CanvasArea, CanvasItem)> {
-        sized.1.into_iter().zip(self.children_mut()).flat_map(|((offset, branch), child)| {
+    fn draw(&mut self, ctx: &mut Context, sized: SizedBranch, poffset: Offset, bound: Rect) {
+        sized.1.into_iter().zip(self.children_mut()).for_each(|((offset, branch), child)| {
             let size = branch.0;
             let poffset = (poffset.0+offset.0, poffset.1+offset.1);
 
@@ -139,9 +139,9 @@ impl<C: Component + ?Sized + 'static + OnEvent> _Drawable for C {
             );
 
             if bound.2 != 0.0 && bound.3 != 0.0 {
-                child.draw(ctx, branch, poffset, bound)
-            } else {vec![]}
-        }).collect()
+                child.draw(ctx, branch, poffset, bound);
+            }
+        })
     }
 
     fn event(&mut self, ctx: &mut Context, sized: SizedBranch, mut event: Box<dyn Event>) {
