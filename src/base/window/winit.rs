@@ -7,6 +7,11 @@ use winit_crate::event::{ElementState, WindowEvent as WinitWindowEvent, TouchPha
 use winit_crate::application::ApplicationHandler;
 use winit_crate::window::{Window, WindowId};
 
+#[cfg(target_os="android")]
+use winit_crate::platform::android::activity::AndroidApp;
+#[cfg(target_os="android")]
+use winit_crate::platform::android::EventLoopBuilderExtAndroid;
+
 use super::{WindowAppTrait, WindowEvent, MouseState, KeyboardState};
 
 #[derive(Default)]
@@ -113,8 +118,9 @@ impl<A: WindowAppTrait + 'static> Winit<A> {
 
 impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        self.window().request_redraw();
-     }
+        println!("About to wait");
+        if self.window.is_some() {self.window().request_redraw();}
+    }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
          self.window = Some(Arc::new(event_loop.create_window(
@@ -150,6 +156,7 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                     event_loop.exit();
                 },
                 WinitWindowEvent::RedrawRequested => {
+                    println!("RedrawRequested");
                     self.app_event(WindowEvent::Tick);
                 },
                 WinitWindowEvent::Occluded(occluded) => {

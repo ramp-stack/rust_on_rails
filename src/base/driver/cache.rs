@@ -10,37 +10,6 @@ use tokio::sync::Mutex;
 
 use super::state::Field;
 
-#[cfg(target_os = "ios")]
-extern "C" {
-    fn get_application_support_dir() -> *const std::os::raw::c_char;
-}
-
-#[macro_export]
-macro_rules! app_storage_path {
-    () => {{
-        #[cfg(target_os="ios")]
-        unsafe {
-            let ptr = get_application_support_dir();
-            if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
-            let c_str = std::ffi::CStr::from_ptr(ptr);
-            std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()))
-        }
-
-        #[cfg(target_os="android")]
-        {
-            app.internal_data_path().unwrap().join(format!(".{}", env!("CARGO_PKG_NAME")))
-        }
-
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
-        {
-            std::path::PathBuf::from(env!("HOME")).join(format!(".{}", env!("CARGO_PKG_NAME")))
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {todo!()}
-    }}
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone)]
 pub struct Cache(

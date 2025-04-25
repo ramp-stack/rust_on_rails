@@ -32,7 +32,7 @@ impl Canvas {
         ).await.unwrap();
 
         let mut limits = Limits::downlevel_webgl2_defaults();
-        limits.max_texture_dimension_2d = 8192;
+        limits.max_texture_dimension_2d = if cfg!(target_os = "android") {4096} else {8192};
 
         let width = width.min(limits.max_texture_dimension_2d);
         let height = height.min(limits.max_texture_dimension_2d);

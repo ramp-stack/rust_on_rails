@@ -4,6 +4,7 @@ use canvas::CanvasItem;
 use canvas::Area as CanvasArea;
 
 use std::fmt::Debug;
+use std::any::Any;
 
 use super::{Context, resources};
 use super::events::*;
@@ -22,13 +23,19 @@ type Rect = (f32, f32, f32, f32);
 type Size = (f32, f32);
 
 #[allow(private_bounds)]
-pub trait Drawable: _Drawable + Debug {
+pub trait Drawable: _Drawable + Debug + Any {
     fn request_size(&self, ctx: &mut Context) -> SizeRequest;
     fn name(&self) -> String;
+
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
-impl<D: _Drawable + ?Sized> Drawable for D {
+
+impl<D: _Drawable + Debug + Any> Drawable for D {
     fn request_size(&self, ctx: &mut Context) -> SizeRequest {_Drawable::request_size(self, ctx).0}
     fn name(&self) -> String {_Drawable::name(self)}
+    fn as_any(&self) -> &dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
 
 pub(crate) trait _Drawable: Debug {
@@ -42,7 +49,6 @@ pub(crate) trait _Drawable: Debug {
 
     fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, _event: Box<dyn Event>) {}
 }
-
 
 impl _Drawable for Text {
     fn request_size(&self, ctx: &mut Context) -> RequestBranch {
