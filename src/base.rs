@@ -163,28 +163,42 @@ macro_rules! create_base_entry_points {
         #[cfg(target_os = "android")]
         #[no_mangle]
         pub fn android_main(app: AndroidApp) {
-            WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start(app);
+            let path = app.internal_data_path().unwrap().join(format!(".{}", env!("CARGO_PKG_NAME")));
+            WindowApp::<BaseApp<$renderer, $app>>::new(path).start(app);
         }
 
         #[cfg(target_os = "ios")]
         #[no_mangle]
         pub extern "C" fn ios_main() {
-            WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start();
+            unsafe {
+                let ptr = crate::get_application_support_dir();
+                if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
+                let c_str = std::ffi::CStr::from_ptr(ptr);
+                let path = std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()));
+            }
+            WindowApp::<BaseApp<$renderer, $app>>::new(path).start();
         }
 
         #[cfg(target_arch = "wasm32")]
         #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
         pub fn wasm_main() {
-            WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start();
+            let path = todo!();
+            WindowApp::<BaseApp<$renderer, $app>>::new(path).start();
         }
 
         #[cfg(not(any(target_os = "android", target_os="ios", target_arch = "wasm32")))]
         pub fn desktop_main() {
+            let path = std::path::PathBuf::from(env!("HOME")).join(format!(".{}", env!("CARGO_PKG_NAME")));
             if std::env::args().len() == 1 {
-                WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start();
+                WindowApp::<BaseApp<$renderer, $app>>::new(path).start();
             } else {
-                BackgroundApp::new_start::<$renderer, $app>(app_storage_path!());
+                BackgroundApp::new_start::<$renderer, $app>(path);
             }
         }
     };
+}
+
+#[cfg(target_os = "ios")]
+extern "C" {
+    pub fn get_application_support_dir() -> *const std::os::raw::c_char;
 }
