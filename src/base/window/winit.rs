@@ -9,6 +9,11 @@ use winit_crate::event::{ElementState, WindowEvent as WinitWindowEvent, TouchPha
 use winit_crate::application::ApplicationHandler;
 use winit_crate::window::{Window, WindowId};
 
+#[cfg(target_os="android")]
+use winit_crate::platform::android::activity::AndroidApp;
+#[cfg(target_os="android")]
+use winit_crate::platform::android::EventLoopBuilderExtAndroid;
+
 use super::{WindowAppTrait, WindowEvent, MouseState, KeyboardState};
 
 pub struct Winit<A: WindowAppTrait + 'static> {

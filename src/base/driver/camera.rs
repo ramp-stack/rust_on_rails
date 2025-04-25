@@ -19,6 +19,11 @@ impl Camera {
         Camera
     }
 
+    #[cfg(target_os = "android")]
+    pub fn get_frame(&self) -> Result<RgbaImage, CameraViewError> {
+        Err(CameraViewError::FailedToGetFrame)
+    }
+
     #[cfg(any(target_os = "ios", target_os = "macos"))]
     pub fn get_frame(&self) -> Result<RgbaImage, CameraViewError> {
         let camera_access_status = unsafe { check_camera_access() };

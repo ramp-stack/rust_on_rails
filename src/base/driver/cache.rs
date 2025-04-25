@@ -12,18 +12,20 @@ use super::state::Field;
 
 #[cfg(target_os = "ios")]
 extern "C" {
-    fn get_application_support_dir() -> *const std::os::raw::c_char;
+    pub fn get_application_support_dir() -> *const std::os::raw::c_char;
 }
 
 #[macro_export]
 macro_rules! app_storage_path {
     () => {{
         #[cfg(target_os="ios")]
-        unsafe {
-            let ptr = get_application_support_dir();
-            if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
-            let c_str = std::ffi::CStr::from_ptr(ptr);
-            std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()))
+        {
+            unsafe {
+                let ptr = crate::get_application_support_dir();
+                if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
+                let c_str = std::ffi::CStr::from_ptr(ptr);
+                std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()))
+            }
         }
 
         #[cfg(target_os="android")]

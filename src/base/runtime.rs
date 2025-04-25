@@ -87,7 +87,7 @@ impl Runtime {
     }
 
     pub fn new<R: Renderer, A: BaseAppTrait<R>>(
-        ctx: HeadlessContext, tasks: Tasks
+        mut ctx: HeadlessContext, tasks: Tasks
     ) -> Self {
         let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(1).build().unwrap();
         #[cfg(any(target_os = "ios", target_os = "android"))]

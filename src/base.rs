@@ -39,6 +39,7 @@ pub enum Event {
     Tick
 }
 
+#[derive(Clone)]
 pub struct HeadlessContext {
     pub cache: Cache,
 }
@@ -162,7 +163,6 @@ macro_rules! create_base_entry_points {
         #[cfg(target_os = "android")]
         #[no_mangle]
         pub fn android_main(app: AndroidApp) {
-            
             WindowApp::<BaseApp<$renderer, $app>>::new(app_storage_path!()).start(app);
         }
 
