@@ -28,7 +28,7 @@ impl BlockingRuntime {
         #[cfg(not(target_arch="wasm32"))]
         let future = BlockingFuture(Arc::new(Mutex::new(Some(
             //Take current thread and block untill future completes
-            tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(task)
+            tokio::runtime::Builder::new_current_thread().enable_time().enable_io().build().unwrap().block_on(task)
         ))));
 
         #[cfg(target_arch="wasm32")]

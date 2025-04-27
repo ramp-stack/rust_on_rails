@@ -64,6 +64,9 @@ impl Context {
         self.assets.push(dir);
     }
 
+    pub fn get_clipboard(&mut self) -> String {self.base_context.get_clipboard()}
+    pub fn set_clipboard(&mut self, text: String){self.base_context.set_clipboard(text)}
+
     pub fn add_font(&mut self, font: &[u8]) -> canvas::Font {self.base_context.as_mut().add_font(font)}
     pub fn add_image(&mut self, image: image::RgbaImage) -> canvas::Image {self.base_context.as_mut().add_image(image)}
     pub fn add_svg(&mut self, svg: &[u8], quality: f32) -> canvas::Image {self.base_context.as_mut().add_svg(svg, quality)}

@@ -60,7 +60,7 @@ impl Runtime {
         ctx: HeadlessContext, background_tasks: Tasks, tasks: Tasks
     ) -> Self {
         let threads = if cfg!(any(target_os = "ios", target_os = "android")) {2} else {1};
-        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(threads).build().unwrap();
+        let runtime = tokio::runtime::Builder::new_multi_thread().enable_time().enable_io().worker_threads(threads).build().unwrap();
 
         if !background_tasks.is_empty() {
             let task_manager = TaskManager::new(ctx.clone(), background_tasks);

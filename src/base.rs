@@ -6,6 +6,7 @@ use driver::logger::Logger;
 use driver::state::State;
 use driver::cache::Cache;
 use driver::camera::Camera;
+use driver::clipboard::Clipboard;
 use driver::runtime::{Runtime, Tasks};
 
 pub mod window;
@@ -55,6 +56,8 @@ impl<R: Renderer> Context<R> {
     pub fn state(&mut self) -> &mut State {&mut self.state}
 
     pub fn open_camera() -> Camera { Camera::new() }
+    pub fn get_clipboard(&mut self) -> String { Clipboard::get() }
+    pub fn set_clipboard(&mut self, t: String) { Clipboard::set(t) }
 }
 
 pub struct BackgroundApp;
@@ -121,7 +124,7 @@ macro_rules! create_base_entry_points {
         #[no_mangle]
         pub fn android_main(app: AndroidApp) {
             let path = app.internal_data_path().unwrap().join(format!(".{}", env!("CARGO_PKG_NAME")));
-            WindowApp::<RendereApp<$renderer, BaseApp<$renderer, $app>>>::new(path).start(app);
+            WindowApp::<RenderApp<$renderer, BaseApp<$renderer, $app>>>::new(path).start(app);
         }
 
         #[cfg(target_os = "ios")]
@@ -138,7 +141,7 @@ macro_rules! create_base_entry_points {
         #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
         pub fn wasm_main() {
             let path = todo!();
-            WindowApp::<RendereApp<$renderer, BaseApp<$renderer, $app>>>::new(path).start();
+            WindowApp::<RenderApp<$renderer, BaseApp<$renderer, $app>>>::new(path).start();
         }
 
         #[cfg(not(any(target_os = "android", target_os="ios", target_arch = "wasm32")))]
