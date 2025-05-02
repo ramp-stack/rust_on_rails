@@ -20,8 +20,8 @@ pub enum WindowEvent<W: WindowHandle> {
     Tick
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MouseState{ Pressed, Moved, Released }
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MouseState{ Pressed, Moved, Released, Scroll(f32, f32) }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyboardState{ Pressed, Released }

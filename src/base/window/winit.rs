@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, Arc};
 
 use winit_crate::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit_crate::event::{ElementState, WindowEvent as WinitWindowEvent, TouchPhase, Touch};
+use winit_crate::event::{ElementState, WindowEvent as WinitWindowEvent, TouchPhase, Touch, MouseScrollDelta};
 use winit_crate::application::ApplicationHandler;
 use winit_crate::window::{Window, WindowId};
 
@@ -206,6 +206,18 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                         ElementState::Pressed => MouseState::Pressed,
                         ElementState::Released => MouseState::Released,
                     }});
+                },
+                WinitWindowEvent::MouseWheel{delta, phase, ..} => {
+                    let position = self.mouse;
+                    // println!("{:?} Wheel pos: {:?}", phase, pos);
+                    if let TouchPhase::Moved = phase {
+                        let pos = match delta {
+                            MouseScrollDelta::LineDelta(x, y) => (x, y),
+                            MouseScrollDelta::PixelDelta(p) => (p.x as f32, p.y as f32),
+                        };
+                        println!("Wheel pos: {:?}", pos);
+                        self.app_event(WindowEvent::Mouse{position, state: MouseState::Scroll(pos.0, pos.1)});
+                    }
                 },
                 WinitWindowEvent::KeyboardInput{event, ..} => {
                     self.app_event(WindowEvent::Keyboard{
