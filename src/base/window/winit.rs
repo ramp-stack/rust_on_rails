@@ -47,7 +47,7 @@ pub struct Winit<A: WindowAppTrait + 'static> {
     scale_factor: f64,
     future: Option<BlockingFuture<A>>,
     window: Option<Arc<Window>>,
-    mouse: (u32, u32),
+    mouse: (u32, u32, f32, f32), // x, y, mouse wheel threshold x, y
     size: (u32, u32),
     name: Option<PathBuf>,
     app: Option<A>
@@ -59,7 +59,7 @@ impl<A: WindowAppTrait + 'static> Winit<A> {
             scale_factor: 0.0,
             future: None,
             window: None,
-            mouse: (0, 0),
+            mouse: (0, 0, 0.0, 0.0),
             size: (0, 0),
             name: Some(name),
             app: None
@@ -186,8 +186,9 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                     });
                 },
                 WinitWindowEvent::Touch(Touch{location, phase, ..}) => {
-                    self.mouse = (location.x as u32, location.y as u32);
-                    let position = self.mouse;
+                    self.mouse.0 = location.x as u32;
+                    self.mouse.1 = location.y as u32;
+                    let position = (self.mouse.0, self.mouse.1);
                     self.app_event(WindowEvent::Mouse{position, state: match phase {
                         TouchPhase::Started => MouseState::Pressed,
                         TouchPhase::Moved => MouseState::Moved,
@@ -196,27 +197,33 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                     }});
                 },
                 WinitWindowEvent::CursorMoved{position, ..} => {
-                    if self.mouse != (position.x as u32, position.y as u32) {
-                        self.mouse = (position.x as u32, position.y as u32);
-                        self.app_event(WindowEvent::Mouse{position: self.mouse, state: MouseState::Moved});
+                    if self.mouse.0 != position.x as u32 && self.mouse.1 != position.y as u32 {
+                        self.mouse.0 = position.x as u32;
+                        self.mouse.1 = position.y as u32;
+                        self.app_event(WindowEvent::Mouse{position: (self.mouse.0, self.mouse.1), state: MouseState::Moved});
                     }
                 },
                 WinitWindowEvent::MouseInput{state, ..} => {
-                    self.app_event(WindowEvent::Mouse{position: self.mouse, state: match state {
+                    self.app_event(WindowEvent::Mouse{position: (self.mouse.0, self.mouse.1), state: match state {
                         ElementState::Pressed => MouseState::Pressed,
                         ElementState::Released => MouseState::Released,
                     }});
                 },
                 WinitWindowEvent::MouseWheel{delta, phase, ..} => {
-                    let position = self.mouse;
-                    // println!("{:?} Wheel pos: {:?}", phase, pos);
+                    let position = (self.mouse.0, self.mouse.1);
                     if let TouchPhase::Moved = phase {
                         let pos = match delta {
                             MouseScrollDelta::LineDelta(x, y) => (x, y),
                             MouseScrollDelta::PixelDelta(p) => (p.x as f32, p.y as f32),
                         };
-                        println!("Wheel pos: {:?}", pos);
-                        self.app_event(WindowEvent::Mouse{position, state: MouseState::Scroll(pos.0, pos.1)});
+                        let scroll_speed = 0.3;
+                        self.mouse.2 += -pos.0 * scroll_speed;
+                        self.mouse.3 += -pos.1 * scroll_speed;
+                        self.app_event(WindowEvent::Mouse{position, state: MouseState::Scroll(self.mouse.2, self.mouse.3)});
+                    }
+                    if let TouchPhase::Ended = phase {
+                        self.mouse.2 = 0.0;
+                        self.mouse.3 = 0.0;
                     }
                 },
                 WinitWindowEvent::KeyboardInput{event, ..} => {
