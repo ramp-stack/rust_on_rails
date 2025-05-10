@@ -31,7 +31,7 @@ mod sizing;
 pub use sizing::{Layout, SizeRequest, DefaultStack, Area};
 
 mod drawable;
-pub use drawable::{Component, Text, Font, Span, Cursor, Align, Image, Shape, RequestBranch, SizedBranch, Drawable, ShapeType, Color};
+pub use drawable::{Component, Text, Font, Span, Cursor, CursorAction, Align, Image, Shape, RequestBranch, SizedBranch, Drawable, ShapeType, Color};
 use drawable::{_Drawable};
 
 pub type Assets = Vec<Dir<'static>>;
@@ -89,7 +89,7 @@ impl Context {
         )
     }
 
-    pub(crate) fn as_canvas(&mut self) -> &mut CanvasContext {self.as_mut()}
+    pub fn as_canvas(&mut self) -> &mut CanvasContext {self.as_mut()}
 }
 
 impl AsMut<CanvasContext> for Context {

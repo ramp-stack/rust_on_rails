@@ -3,7 +3,7 @@ use wgpu_canvas::{ImageAtlas, FontAtlas};
 use super::{Renderer, RenderAppTrait, HasLifeEvents};
 use crate::base::window::{WindowHandle, WindowEvent};
 
-pub use wgpu_canvas::{Shape, Color, Area, Text, Span, Cursor, Align, Font, Image};
+pub use wgpu_canvas::{Shape, Color, Area, Text, Span, Cursor, CursorAction, Align, Font, Image};
 pub use crate::base::window::{MouseState, KeyboardState, NamedKey, SmolStr, Key};
 
 #[derive(Debug, Clone, Copy)]
@@ -96,12 +96,12 @@ impl CanvasItem {
 
     fn scale_text(text: Text, scale: &Scale) -> Text {
         Text::new(
-            text.cursor,
             text.spans.into_iter().map(|s|
                 Span::new(&s.text, scale.physical(s.font_size), scale.physical(s.line_height), s.font, s.color)
             ).collect(),
             text.width.map(|w| scale.physical(w)),
-            text.align
+            text.align,
+            text.cursor,
         )
     }
 

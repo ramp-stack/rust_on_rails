@@ -10,7 +10,7 @@ use super::{Context, resources};
 use super::events::*;
 use super::sizing::*;
 
-pub use canvas::{Text, Font, Span, Align, Cursor, Color};
+pub use canvas::{Text, Font, Span, Align, Cursor, CursorAction, Color};
 
 #[derive(Default, Debug, Clone)]
 pub struct RequestBranch(pub SizeRequest, Vec<RequestBranch>);
@@ -60,18 +60,12 @@ impl _Drawable for Text {
         ctx.as_canvas().draw(CanvasArea(offset, Some(bound)), CanvasItem::Text(self.clone()));
     }
 
-    fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
-       if let Ok(event) = event.downcast::<MouseEvent>() {
-           if event.state == MouseState::Pressed && event.position.is_some() {
-               self.spans.iter_mut().for_each(|s| {
-                   let color = &mut s.color;
-                   if color.0 > 0 && color.1 == 0 {*color = Color(0, 255, 0, 255)}
-                   else if color.0 > 0 && color.1 > 0 {*color = Color(255, 0, 0, 255)}
-                   else if color.1 > 0 {*color = Color(0, 0, 255, 255)}
-                   else if color.2 > 0 {*color = Color(255, 255, 255, 255)}
-                });
-           }
-       }
+    fn event(&mut self, ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
+        // if let Ok(event) = event.downcast::<MouseEvent>() {
+        //     if event.state == MouseState::Pressed && event.position.is_some() {
+        //         self.set_cursor(ctx.as_canvas(), event.position.unwrap().0, event.position.unwrap().1);
+        //     }
+        // }
     }
 }
 
