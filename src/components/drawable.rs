@@ -60,13 +60,7 @@ impl _Drawable for Text {
         ctx.as_canvas().draw(CanvasArea(offset, Some(bound)), CanvasItem::Text(self.clone()));
     }
 
-    fn event(&mut self, ctx: &mut Context, _sized: SizedBranch, event: Box<dyn Event>) {
-        // if let Ok(event) = event.downcast::<MouseEvent>() {
-        //     if event.state == MouseState::Pressed && event.position.is_some() {
-        //         self.set_cursor(ctx.as_canvas(), event.position.unwrap().0, event.position.unwrap().1);
-        //     }
-        // }
-    }
+    fn event(&mut self, _ctx: &mut Context, _sized: SizedBranch, _event: Box<dyn Event>) {}
 }
 
 pub use canvas::Shape as ShapeType;
