@@ -21,7 +21,7 @@ impl Clipboard {
             return cstr.to_string_lossy().into_owned()
         }
         #[cfg(not(any(target_os = "ios", target_os = "android")))]
-        return cli_clipboard::get_contents().unwrap_or(String::new());
+        return cli_clipboard::get_contents().unwrap_or_default();
     }
 
     pub fn set(text: String) {
