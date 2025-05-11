@@ -1,4 +1,4 @@
-# 🛤 rust_on_rails
+# rust_on_rails
 
 **rust_on_rails** is a lightweight, ergonomic abstraction over [`wgpu_canvas`](https://crates.io/crates/wgpu_canvas), designed to make building 2D GPU-rendered UIs and layouts in Rust simpler and more intuitive.
 
