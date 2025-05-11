@@ -14,7 +14,7 @@
 Add it to your `Cargo.toml`:
 
 [dependencies]
-rust_on_rails = "3.2.0"
+rust_on_rails = "4.0.1"
 
 ## 📚 Documentation
 Full documentation is available at https://docs.rs/rust_on_rails

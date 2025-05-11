@@ -2496,7 +2496,7 @@ dependencies = [
 
 [[package]]
 name = "rust_on_rails"
-version = "3.1.0"
+version = "4.0.0"
 dependencies = [
  "android_logger",
  "async-trait",
@@ -3639,14 +3639,15 @@ dependencies = [
 
 [[package]]
 name = "wgpu_canvas"
-version = "3.1.0"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08f2c1321336853c48dab10ec7c54d65d58734b7a0076330e519a9dfca559b6a"
 dependencies = [
  "bytemuck",
  "fast_image_resize",
  "glyphon",
  "hex",
  "image 0.25.5",
- "unicode-segmentation",
  "wgpu",
  "wgpu_dyn_buffer",
 ]
