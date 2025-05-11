@@ -1,10 +1,13 @@
 [package]
 name = "rust_on_rails"
-version = "3.1.0"
+version = "3.2.0"
 edition = "2021"
-description = "Rust On Rails is a rust framework to make building native and web apps easy as possible"
+description = "Ergonomic Rust layer for simplifying native and web app development with minimal boilerplate."
 license = "BSD-3-Clause"
-repository = "https://github.com/CalebCouch/rust_on_rails.git"
+repository = "https://github.com/ramp-stack/rust_on_rails.git"
+documentation = "https://docs.rs/rust_on_rails"
+keywords = ["rust", "wgpu", "canvas", "UI", "graphics"]
+categories = ["gui", "graphics", "rendering", "game-development"]
 
 [dependencies]
 log = "0.4.25"
