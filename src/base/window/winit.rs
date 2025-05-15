@@ -51,7 +51,6 @@ pub struct Winit<A: WindowAppTrait + 'static> {
     size: (u32, u32),
     name: Option<PathBuf>,
     app: Option<A>,
-    webview: Option<WebView>,
 }
 
 impl<A: WindowAppTrait + 'static> Winit<A> {
@@ -64,7 +63,6 @@ impl<A: WindowAppTrait + 'static> Winit<A> {
             size: (0, 0),
             name: Some(name),
             app: None,
-            webview: None,
         }
     }
 
