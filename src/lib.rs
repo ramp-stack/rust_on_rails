@@ -1,3 +1,5 @@
+#![doc(html_logo_url = "https://raw.githubusercontent.com/ramp-stack/rust_on_rails/main/logo.png")]
+
 mod base;
 pub use base::{BackgroundApp, HeadlessContext, BaseApp};
 pub use base::window::WindowApp;

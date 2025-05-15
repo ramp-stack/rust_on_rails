@@ -50,7 +50,8 @@ pub struct Winit<A: WindowAppTrait + 'static> {
     mouse: (u32, u32, f32, f32), // x, y, mouse wheel threshold x, y
     size: (u32, u32),
     name: Option<PathBuf>,
-    app: Option<A>
+    app: Option<A>,
+    webview: Option<WebView>,
 }
 
 impl<A: WindowAppTrait + 'static> Winit<A> {
@@ -62,7 +63,8 @@ impl<A: WindowAppTrait + 'static> Winit<A> {
             mouse: (0, 0, 0.0, 0.0),
             size: (0, 0),
             name: Some(name),
-            app: None
+            app: None,
+            webview: None,
         }
     }
 
@@ -122,7 +124,7 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-         self.window = Some(Arc::new(event_loop.create_window(
+        self.window = Some(Arc::new(event_loop.create_window(
             Window::default_attributes().with_title("orange")
         ).unwrap()));
 
@@ -131,6 +133,7 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
         let scale_factor = self.window().scale_factor();
         self.scale_factor = scale_factor;
         let window = self.window.clone().unwrap();
+
         if self.app.is_some() {
             self.app_event(WindowEvent::Resumed{
                 window: window.clone(), width: size.width, height: size.height, scale_factor
