@@ -200,7 +200,7 @@ impl<A: App> BaseAppTrait<Canvas> for CanvasApp<A> {
     ) {
         match &event {
             Event::Tick => {
-                //log::error!("last_frame: {:?}", self.time.elapsed());
+                log::error!("last_frame: {:?}", self.time.elapsed());
                 self.time = Instant::now();
             },
             Event::Resumed { width, height } | Event::Resized { width, height } => {
