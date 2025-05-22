@@ -47,6 +47,7 @@ pub struct Winit<A: WindowAppTrait + 'static> {
     scale_factor: f64,
     future: Option<BlockingFuture<A>>,
     window: Option<Arc<Window>>,
+    prev_touch: Option<(f64, f64)>,
     mouse: (u32, u32, f32, f32), // x, y, mouse wheel threshold x, y
     size: (u32, u32),
     name: Option<PathBuf>,
@@ -59,6 +60,7 @@ impl<A: WindowAppTrait + 'static> Winit<A> {
             scale_factor: 0.0,
             future: None,
             window: None,
+            prev_touch: None,
             mouse: (0, 0, 0.0, 0.0),
             size: (0, 0),
             name: Some(name),
@@ -186,17 +188,50 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                         width: size.0, height: size.1, scale_factor
                     });
                 },
-                WinitWindowEvent::Touch(Touch{location, phase, ..}) => {
-                    self.mouse.0 = location.x as u32;
-                    self.mouse.1 = location.y as u32;
-                    let position = (self.mouse.0, self.mouse.1);
-                    self.app_event(WindowEvent::Mouse{position, state: match phase {
-                        TouchPhase::Started => MouseState::Pressed,
-                        TouchPhase::Moved => MouseState::Moved,
-                        TouchPhase::Ended => MouseState::Released,
-                        TouchPhase::Cancelled => MouseState::Released
-                    }});
-                },
+                WinitWindowEvent::Touch(Touch { location, phase, .. }) => {
+                    let x = location.x;
+                    let y = location.y;
+                    let position = (x as u32, y as u32);
+                
+                    match phase {
+                        TouchPhase::Started => {
+                            self.prev_touch = Some((x, y));
+                            self.app_event(WindowEvent::Mouse {
+                                position,
+                                state: MouseState::Pressed,
+                            });
+                        }
+                
+                        TouchPhase::Moved => {
+                            if let Some((prev_x, prev_y)) = self.prev_touch {
+                                let dx = x - prev_x;
+                                let dy = y - prev_y;
+                
+                                let scroll_speed = 0.3; 
+                                self.mouse.2 += -(dx as f32) * scroll_speed;
+                                self.mouse.3 += -(dy as f32) * scroll_speed;
+                
+                                self.app_event(WindowEvent::Mouse {
+                                    position,
+                                    state: MouseState::Scroll(self.mouse.2, self.mouse.3),
+                                });
+                
+                                self.prev_touch = Some((x, y));
+                            }
+                        }
+                
+                        TouchPhase::Ended | TouchPhase::Cancelled => {
+                            self.prev_touch = None;
+                            self.mouse.2 = 0.0;
+                            self.mouse.3 = 0.0;
+                
+                            self.app_event(WindowEvent::Mouse {
+                                position,
+                                state: MouseState::Released,
+                            });
+                        }
+                    }
+                },                
                 WinitWindowEvent::CursorMoved{position, ..} => {
                     if self.mouse.0 != position.x as u32 && self.mouse.1 != position.y as u32 {
                         self.mouse.0 = position.x as u32;

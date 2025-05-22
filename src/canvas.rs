@@ -62,7 +62,7 @@ impl AsMut<canvas::Context> for Context<'_> {
 }
 
 impl<'a> Context<'a> {
-    /// Creates a new UI context for the current frame or interaction phase.
+    /// Creates a new UI context.
     ///
     /// # Arguments
     /// - `size`: The size of the screen or rendering area.
@@ -70,7 +70,7 @@ impl<'a> Context<'a> {
     ///   which manages plugins, canvas state, and system access.
     ///
     /// # Returns
-    /// A [`Context`] that provides scoped access to rendering and state management.
+    /// A [`Context`].
     fn new(
         size: (f32, f32),
         base_context: &'a mut base::Context<'a, Canvas>

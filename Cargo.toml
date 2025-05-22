@@ -14,7 +14,8 @@ log = "0.4.25"
 winit_crate = {package="winit", version="0.30.9", features=["android-native-activity"]}
 wgpu = "25.0.0"
 include_dir = {version="0.7.4", features=["glob"]}
-wgpu_canvas = "4.0.1"
+#wgpu_canvas = "4.0.1"
+wgpu_canvas = {path="../wgpu_canvas"}
 hex = "0.4.3"
 image = "0.25.5"
 nsvg = "0.5.1"
@@ -25,6 +26,8 @@ serde_json = "1.0.140"
 async-trait = "0.1.88"
 downcast-rs = "2.0.1"
 jni = "0.21.1"
+
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 cli-clipboard = "0.4.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
