@@ -388,7 +388,7 @@ impl<A: App> BaseAppTrait<Canvas> for ComponentApp<A> {
                     .push_back(Box::new(KeyboardEvent { key, state }));
             }
             canvas::Event::Tick => {
-                log::error!("last_frame: {:?}", self.time.elapsed());
+                //log::error!("last_frame: {:?}", self.time.elapsed());
                 self.time = Instant::now();
 
                 self.app.event(&mut self.ctx, self.sized_app.clone(), Box::new(TickEvent));
