@@ -2,6 +2,8 @@
 use cli_clipboard;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIPasteboard;
+#[cfg(target_os = "ios")]
+use objc2_foundation::NSString;
 
 pub struct Clipboard;
 
@@ -16,7 +18,11 @@ impl Clipboard {
 
     #[cfg(target_os = "ios")]
     pub fn set(text: String) {
-        println!("CANNOT SET CLIPBOARD CURRENTLY : {:?}", text);
+        unsafe {
+            let pasteboard = UIPasteboard::generalPasteboard();
+            let ns_string = NSString::from_str(&text);
+            pasteboard.setString(Some(&ns_string));
+        }
     }
 
     #[cfg(not(any(target_os = "ios", target_os = "android")))]

@@ -98,8 +98,7 @@ define_class!(
             let slice = unsafe { from_raw_parts(base_address, size) };
 
 
-            let mut image = RgbaImage::new(width as u32, height as u32);
-            let mut pixels = image.pixels_mut();
+            let mut image = RgbaImage::new(height as u32, width as u32); // rotated canvas!
 
             for y in 0..height {
                 let row_start = y * bytes_per_row;
@@ -114,10 +113,15 @@ define_class!(
                     let b = slice[src_index];
                     let a = slice[src_index + 3];
 
-                    let pixel = pixels.next().unwrap();
-                    *pixel = Rgba([r, g, b, a]);
+                    // Rotate -90°: (x, y) → (height - 1 - y, x)
+                    let dest_x = height - 1 - y;
+                    let dest_y = x;
+
+                    image.put_pixel(dest_x as u32, dest_y as u32, Rgba([r, g, b, a]));
                 }
             }
+
+
 
             *self.ivars().last_frame.lock().unwrap() = Some(image);
 
