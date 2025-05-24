@@ -14,6 +14,11 @@ impl Clipboard {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    pub fn set(text: String) {
+        println!("CANNOT SET CLIPBOARD CURRENTLY : {:?}", text);
+    }
+
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
     pub fn get() -> String {
         cli_clipboard::get_contents().unwrap_or_default()

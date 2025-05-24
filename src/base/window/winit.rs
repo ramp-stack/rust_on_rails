@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::{Mutex, Arc};
+use std::time::{Duration, Instant};
 
 use winit_crate::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit_crate::event::{ElementState, WindowEvent as WinitWindowEvent, TouchPhase, Touch, MouseScrollDelta};
@@ -48,6 +49,7 @@ pub struct Winit<A: WindowAppTrait + 'static> {
     future: Option<BlockingFuture<A>>,
     window: Option<Arc<Window>>,
     prev_touch: Option<(f64, f64)>,
+    touch_start_time: Option<Instant>,
     mouse: (u32, u32, f32, f32), // x, y, mouse wheel threshold x, y
     size: (u32, u32),
     name: Option<PathBuf>,
@@ -61,6 +63,7 @@ impl<A: WindowAppTrait + 'static> Winit<A> {
             future: None,
             window: None,
             prev_touch: None,
+            touch_start_time: None,
             mouse: (0, 0, 0.0, 0.0),
             size: (0, 0),
             name: Some(name),
@@ -194,12 +197,62 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                     let position = (x as u32, y as u32);
                 
                     match phase {
+                        // start a timer when the touch phase started
+                        // when touch phase:: started, start a timer and app_event a MouseState::OnPress
+                        // when touch phase:: Ended or Cannceled, stop the timer. If the timer is less than 1 second then app_event a MouseState::OnRelease and reset the timer
+                        // if  the timer was greater than 1 second, then reset the timer, and emmit the app_event Released 
+                        // TouchPhase::Started => {
+                        //     self.prev_touch = Some((x, y));
+                        //     self.app_event(WindowEvent::Mouse {
+                        //         position,
+                        //         state: MouseState::Pressed,
+                        //     });
+                        // }
+
+                        // TouchPhase::Ended | TouchPhase::Cancelled => {
+                        //     self.prev_touch = None;
+                        //     self.mouse.2 = 0.0;
+                        //     self.mouse.3 = 0.0;
+                
+                        //     self.app_event(WindowEvent::Mouse {
+                        //         position,
+                        //         state: MouseState::Released,
+                        //     });
+                        // }
+
                         TouchPhase::Started => {
                             self.prev_touch = Some((x, y));
+                            self.touch_start_time = Some(Instant::now());
+
                             self.app_event(WindowEvent::Mouse {
                                 position,
                                 state: MouseState::Pressed,
                             });
+                        }
+
+                        TouchPhase::Ended | TouchPhase::Cancelled => {
+                            self.prev_touch = None;
+                            self.mouse.2 = 0.0;
+                            self.mouse.3 = 0.0;
+
+                            let held_for = self.touch_start_time
+                                .take()
+                                .map(|start| start.elapsed())
+                                .unwrap_or_default();
+
+                            if held_for < Duration::from_millis(200) {
+                                // Short press
+                                self.app_event(WindowEvent::Mouse {
+                                    position,
+                                    state: MouseState::Released,
+                                });
+                            } else {
+                                // Long press release
+                                self.app_event(WindowEvent::Mouse {
+                                    position,
+                                    state: MouseState::LongPressReleased,
+                                });
+                            }
                         }
                 
                         TouchPhase::Moved => {
@@ -207,7 +260,7 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                                 let dx = x - prev_x;
                                 let dy = y - prev_y;
                 
-                                let scroll_speed = 0.3; 
+                                let scroll_speed = 0.1; 
                                 self.mouse.2 += -(dx as f32) * scroll_speed;
                                 self.mouse.3 += -(dy as f32) * scroll_speed;
                 
@@ -220,16 +273,7 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                             }
                         }
                 
-                        TouchPhase::Ended | TouchPhase::Cancelled => {
-                            self.prev_touch = None;
-                            self.mouse.2 = 0.0;
-                            self.mouse.3 = 0.0;
-                
-                            self.app_event(WindowEvent::Mouse {
-                                position,
-                                state: MouseState::Released,
-                            });
-                        }
+
                     }
                 },                
                 WinitWindowEvent::CursorMoved{position, ..} => {

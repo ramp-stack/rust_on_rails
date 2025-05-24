@@ -26,8 +26,8 @@ pub struct Camera (
 impl Camera {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn new() -> Self {
-        #[cfg(target_os = "ios")]
-        start_camera_apple();
+        // #[cfg(target_os = "ios")]
+        // start_camera_apple();
 
         let camera = AppleCamera::new();
         camera.open_camera();
