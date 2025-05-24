@@ -168,7 +168,7 @@ impl AppleCamera {
             let discovery_session = AVCaptureDeviceDiscoverySession::discoverySessionWithDeviceTypes_mediaType_position(
                 &device_types,
                 AVMediaTypeVideo,
-                AVCaptureDevicePosition::Front,
+                AVCaptureDevicePosition::Back,
             );
 
             let devices = discovery_session.devices();

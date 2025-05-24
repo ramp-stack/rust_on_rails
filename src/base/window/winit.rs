@@ -259,21 +259,21 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                             if let Some((prev_x, prev_y)) = self.prev_touch {
                                 let dx = x - prev_x;
                                 let dy = y - prev_y;
-                
-                                let scroll_speed = 0.1; 
-                                self.mouse.2 += -(dx as f32) * scroll_speed;
-                                self.mouse.3 += -(dy as f32) * scroll_speed;
-                
-                                self.app_event(WindowEvent::Mouse {
-                                    position,
-                                    state: MouseState::Scroll(self.mouse.2, self.mouse.3),
-                                });
-                
+                        
+                                let scroll_speed = 0.3; // Tune this to adjust sensitivity
+                                let scroll_x = -(dx as f32) * scroll_speed;
+                                let scroll_y = -(dy as f32) * scroll_speed;
+                        
+                                if scroll_x.abs() > 0.01 || scroll_y.abs() > 0.01 {
+                                    self.app_event(WindowEvent::Mouse {
+                                        position,
+                                        state: MouseState::Scroll(scroll_x, scroll_y),
+                                    });
+                                }
+                        
                                 self.prev_touch = Some((x, y));
                             }
                         }
-                
-
                     }
                 },                
                 WinitWindowEvent::CursorMoved{position, ..} => {
@@ -296,7 +296,7 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                             MouseScrollDelta::LineDelta(x, y) => (x, y),
                             MouseScrollDelta::PixelDelta(p) => (p.x as f32, p.y as f32),
                         };
-                        let scroll_speed = 0.3;
+                        let scroll_speed = 0.2; // Tune this to adjust sensitivity
                         self.mouse.2 += -pos.0 * scroll_speed;
                         self.mouse.3 += -pos.1 * scroll_speed;
                         self.app_event(WindowEvent::Mouse{position, state: MouseState::Scroll(self.mouse.2, self.mouse.3)});
