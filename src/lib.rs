@@ -7,6 +7,7 @@ pub use base::renderer::RenderApp;
 pub use base::driver::runtime::{Task, Tasks, async_trait};
 pub use base::driver::state::{State, Field};
 pub use base::driver::cache::Cache;
+pub use base::driver::cloud::CloudStorage;
 pub use base::driver::camera::{Camera, CameraError};
 #[cfg(target_os="ios")]
 pub use base::get_application_support_dir;
