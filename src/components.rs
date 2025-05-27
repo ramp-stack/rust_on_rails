@@ -11,6 +11,7 @@ use crate::base;
 use base::{BaseAppTrait, HeadlessContext};
 use base::driver::runtime::Tasks;
 use base::driver::state::State;
+use base::driver::share::Share;
 
 use base::renderer::wgpu_canvas as canvas;
 pub use canvas::Canvas;
@@ -69,6 +70,7 @@ impl Context {
     ///
     /// * `event` - Any type implementing the [`Event`] trait.
     pub fn trigger_event(&mut self, event: impl Event) {
+        // println!("EVENT TRIGGERED {:?}", event);
         self.events.push_back(Box::new(event));
     }
 
@@ -109,6 +111,10 @@ impl Context {
     /// * `text` - A `String` to be copied to the clipboard.
     pub fn set_clipboard(&mut self, text: String) {
         self.base_context.set_clipboard(text)
+    }
+
+    pub fn share(&mut self, text: &str) {
+        Share::share(text)
     }
 
     /// Adds a font from raw bytes and returns a reference to the internal font handle.
@@ -366,11 +372,6 @@ impl<A: App> BaseAppTrait<Canvas> for ComponentApp<A> {
 
     /// Handles canvas-level events including window resizing, mouse/keyboard input,
     /// and the frame-tick signal which triggers rendering and event processing.
-    ///
-    /// Event processing order:
-    /// 1. [`TickEvent`]
-    /// 2. Buffered [`MouseEvent`] / [`KeyboardEvent`] from `ctx.events`
-    /// 3. UI rebuild + draw
     fn on_event(&mut self, event: canvas::Event) {
         match event {
             canvas::Event::Resized { width, height }
@@ -398,8 +399,7 @@ impl<A: App> BaseAppTrait<Canvas> for ComponentApp<A> {
                         .pass(&mut self.ctx, vec![((0.0, 0.0), self.sized_app.0)])
                         .remove(0)
                     {
-                        self.app
-                            .event(&mut self.ctx, self.sized_app.clone(), event);
+                        self.app.event(&mut self.ctx, self.sized_app.clone(), event);
                     }
                 }
 

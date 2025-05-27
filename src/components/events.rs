@@ -1,9 +1,9 @@
 use super::{Context};
 pub use crate::base::renderer::wgpu_canvas::{MouseState, KeyboardState, NamedKey, Key, SmolStr};
-
-use downcast_rs::{DowncastSync, impl_downcast};
+use downcast_rs::{Downcast, impl_downcast};
 
 use std::fmt::Debug;
+use std::any::Any;
 
 pub type Events = std::collections::VecDeque<Box<dyn Event>>;
 
@@ -11,11 +11,12 @@ pub trait OnEvent: Debug {
     fn on_event(&mut self, _ctx: &mut Context, _event: &mut dyn Event) -> bool {true}
 }
 
-pub trait Event: Debug + DowncastSync {
+pub trait Event: Debug + Downcast {
     ///Function for event to decide on weather to pass the event to a child, Event can also be modified for the child
     fn pass(self: Box<Self>, _ctx: &mut Context, children: Vec<((f32, f32), (f32, f32))>) -> Vec<Option<Box<dyn Event>>>;
 }
-impl_downcast!(sync Event); 
+impl_downcast!(Event); 
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MouseEvent {

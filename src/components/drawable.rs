@@ -142,7 +142,9 @@ impl<C: Component + ?Sized + 'static + OnEvent> _Drawable for C {
         if OnEvent::on_event(self, ctx, &mut *event) {
             let children = sized.1.iter().map(|(o, branch)| (*o, branch.0)).collect::<Vec<_>>();
             event.pass(ctx, children).into_iter().zip(self.children_mut()).zip(sized.1).for_each(
-                |((e, child), branch)| if let Some(e) = e {child.event(ctx, branch.1, e);}
+                |((e, child), branch)| {
+                    if let Some(e) = e {child.event(ctx, branch.1, e);}
+                }
             );
         }
     }
