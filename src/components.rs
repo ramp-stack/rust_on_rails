@@ -100,18 +100,18 @@ impl Context {
     }
 
     /// Retrieves the contents of the system clipboard as a `String`.
-    pub fn get_clipboard(&mut self) -> String {
-        self.base_context.get_clipboard()
-    }
+    // pub fn get_clipboard(&mut self) -> String {
+    //     self.base_context.get_clipboard()
+    // }
 
     /// Sets the contents of the system clipboard.
     ///
     /// # Arguments
     ///
     /// * `text` - A `String` to be copied to the clipboard.
-    pub fn set_clipboard(&mut self, text: String) {
-        self.base_context.set_clipboard(text)
-    }
+    // pub fn set_clipboard(&mut self, text: String) {
+    //     self.base_context.set_clipboard(text)
+    // }
 
     pub fn share(&mut self, text: &str) {
         Share::share(text)

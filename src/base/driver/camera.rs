@@ -38,7 +38,7 @@ impl Camera {
     pub fn new() -> Self {
         // let mut camera = AndroidCamera::new().expect("Failed to create Android camera");
         // camera.open_camera();
-        // return Camera(camera)
+        return Camera()
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]

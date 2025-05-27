@@ -1,41 +1,54 @@
-#![allow(non_snake_case)]
+# ![allow(non_snake_case)]
 
-use std::sync::Mutex;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use std::slice::from_raw_parts;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+use std::sync::Mutex;
 
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use dispatch2::DispatchQueue;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use image::{Rgba, RgbaImage};
 
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use objc2::__framework_prelude::NSObject;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use objc2::rc::Retained;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use objc2::runtime::{NSObjectProtocol, ProtocolObject};
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use objc2::{define_class, AllocAnyThread, DeclaredClass};
-use objc2_foundation::{ NSArray, NSDictionary, NSNumber, NSString};
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use objc2_core_media::CMSampleBuffer;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+use objc2_foundation::{NSArray, NSDictionary, NSNumber, NSString};
 
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use objc2_av_foundation::{
     AVCaptureConnection,
     AVCaptureDeviceDiscoverySession,
+    AVCaptureDeviceInput,
+    AVCaptureDevicePosition,
     AVCaptureOutput,
     AVCaptureSession,
     AVCaptureSessionPresetMedium,
     AVCaptureVideoDataOutput,
     AVCaptureVideoDataOutputSampleBufferDelegate,
     AVMediaTypeVideo,
-    AVCaptureDeviceInput,
-    AVCaptureDevicePosition
 };
 
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use objc2_core_video::{
+    kCVPixelBufferPixelFormatTypeKey,
     kCVPixelFormatType_32BGRA,
+    CVPixelBufferGetBaseAddress,
+    CVPixelBufferGetBytesPerRow,
     CVPixelBufferGetHeight,
     CVPixelBufferGetWidth,
-    kCVPixelBufferPixelFormatTypeKey,
-    CVPixelBufferGetBytesPerRow,
-    CVPixelBufferGetBaseAddress,
     CVPixelBufferLockFlags,
 };
 
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 #[derive(Debug)]
 pub struct ProcessorClass {
     pub last_frame: Mutex<Option<RgbaImage>>,
@@ -48,9 +61,12 @@ define_class!(
     #[derive(Debug)]
     struct Processor;
 
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     unsafe impl NSObjectProtocol for Processor {}
 
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     unsafe impl AVCaptureVideoDataOutputSampleBufferDelegate for Processor {
+        #[cfg(any(target_os = "ios", target_os = "macos"))]
         #[unsafe(method(captureOutput:didOutputSampleBuffer:fromConnection:))]
         fn captureOutput_didOutputSampleBuffer_fromConnection(
             &self,
@@ -71,6 +87,7 @@ define_class!(
             let bytes_per_row = unsafe { CVPixelBufferGetBytesPerRow(&pixel_buffer) };
             let size = bytes_per_row * height;
 
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
             use objc2_core_video::{CVPixelBufferLockBaseAddress, CVPixelBufferUnlockBaseAddress};
 
             let lock_result =
@@ -134,6 +151,7 @@ define_class!(
 
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 impl Processor {
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     pub fn new() -> Retained<Self> {
         let this = Self::alloc();
         let this = this.set_ivars(ProcessorClass {
@@ -142,6 +160,7 @@ impl Processor {
         unsafe { objc2::msg_send![super(this), init] }
     }
 
+    // #[cfg(any(target_os = "ios", target_os = "macos"))]
     // pub fn get_latest_frame(&self) -> Option<RgbaImage> {
     //     self.ivars().last_frame.lock().unwrap().clone()
     // }
@@ -150,12 +169,15 @@ impl Processor {
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 #[derive(Debug)]
 pub struct AppleCamera {
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     pub session: Retained<AVCaptureSession>,
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     processor: Retained<Processor>,
 }
 
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 impl AppleCamera {
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     pub fn new() -> Self {
         unsafe {
             AppleCamera {
@@ -165,6 +187,7 @@ impl AppleCamera {
         }
     }
 
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     pub fn open_camera(&self) {
         unsafe {
             let device_types = NSArray::from_slice(&[objc2_av_foundation::AVCaptureDeviceTypeBuiltInWideAngleCamera]);
@@ -219,6 +242,7 @@ impl AppleCamera {
         }
     }
 
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     pub fn get_latest_frame(&self) -> Option<RgbaImage> {
         let lock = self.processor.ivars().last_frame.lock().unwrap();
         if lock.is_some() {
