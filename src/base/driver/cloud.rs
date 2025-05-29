@@ -473,18 +473,18 @@ pub extern "C" fn cloud_storage_get(key: *const i8, buffer: *mut i8, buffer_size
         Ok(Some(value)) => {
             let value_bytes = value.as_bytes();
             if value_bytes.len() + 1 > buffer_size {
-                return -2; // Buffer too small
+                return -2;
             }
 
             unsafe {
                 std::ptr::copy_nonoverlapping(value_bytes.as_ptr(), buffer as *mut u8, value_bytes.len());
-                *buffer.add(value_bytes.len()) = 0; // Null terminator
+                *buffer.add(value_bytes.len()) = 0;
             }
 
             value_bytes.len() as i32
         }
-        Ok(None) => 0, // Key not found
-        Err(_) => -1,  // Error occurred
+        Ok(None) => 0,
+        Err(_) => -1,
     }
 }
 
