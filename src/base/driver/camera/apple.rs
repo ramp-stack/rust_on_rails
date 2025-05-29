@@ -9,7 +9,7 @@ use image::{Rgba, RgbaImage};
 use objc2::__framework_prelude::NSObject;
 use objc2::rc::Retained;
 use objc2::runtime::{NSObjectProtocol, ProtocolObject};
-use objc2::{define_class, AllocAnyThread, DeclaredClass};
+use objc2::{define_class, AllocAnyThread, DeclaredClass, msg_send};
 use objc2_foundation::{ NSArray, NSDictionary, NSNumber, NSString};
 use objc2_core_media::CMSampleBuffer;
 
@@ -18,12 +18,13 @@ use objc2_av_foundation::{
     AVCaptureDeviceDiscoverySession,
     AVCaptureOutput,
     AVCaptureSession,
-    AVCaptureSessionPresetMedium,
+    AVCaptureSessionPresetHigh,
     AVCaptureVideoDataOutput,
     AVCaptureVideoDataOutputSampleBufferDelegate,
     AVMediaTypeVideo,
     AVCaptureDeviceInput,
-    AVCaptureDevicePosition
+    AVCaptureDevicePosition,
+    AVCaptureExposureMode,
 };
 
 use objc2_core_video::{
@@ -31,6 +32,7 @@ use objc2_core_video::{
     CVPixelBufferGetHeight,
     CVPixelBufferGetWidth,
     kCVPixelBufferPixelFormatTypeKey,
+    kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
     CVPixelBufferGetBytesPerRow,
     CVPixelBufferGetBaseAddress,
     CVPixelBufferLockFlags,
@@ -184,7 +186,7 @@ impl AppleCamera {
 
             self.session.beginConfiguration();
 
-            self.session.setSessionPreset(AVCaptureSessionPresetMedium);
+            self.session.setSessionPreset(AVCaptureSessionPresetHigh);
 
             if self.session.canAddInput(&input) {
                 self.session.addInput(&input);
