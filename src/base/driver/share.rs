@@ -18,7 +18,7 @@ impl Share {
             let activity_controller: *mut NSObject = unsafe { msg_send![cls, alloc] };
     
             let activity_controller: *mut NSObject = unsafe {
-                msg_send![activity_controller, initWithActivityItems:&*items applicationActivities: std::ptr::null_mut::<NSArray<NSObject>>()]
+                msg_send![activity_controller, initWithActivityItems:&*items, applicationActivities: std::ptr::null_mut::<NSArray<NSObject>>()]
             };
     
             let ui_app = class!(UIApplication);
@@ -29,9 +29,9 @@ impl Share {
             let _: () = unsafe {
                 msg_send![
                     root_vc,
-                    presentViewController:activity_controller
-                    animated:true
-                    completion: std::ptr::null_mut::<objc2::runtime::Object>()
+                    presentViewController: activity_controller,
+                    animated: true,
+                    completion: std::ptr::null_mut::<objc2::runtime::AnyObject>()
                 ]
             };
         });

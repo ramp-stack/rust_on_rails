@@ -6,12 +6,15 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::future::Future;
 use std::time::Instant;
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Receiver, Sender};
 
 use crate::base;
 use base::{BaseAppTrait, HeadlessContext};
 use base::driver::runtime::Tasks;
 use base::driver::state::State;
 use base::driver::share::Share;
+use base::driver::photo_picker::PhotoPicker;
 
 use base::renderer::wgpu_canvas as canvas;
 pub use canvas::Canvas;
@@ -116,6 +119,15 @@ impl Context {
     pub fn share(&mut self, text: &str) {
         Share::share(text)
     }
+
+    pub fn open_photo_picker(&mut self, sender: Sender<Vec<u8>>) {
+        
+        println!("OK OK OK");
+        // let image_bytes = rx.await.expect("Failed to receive image bytes");
+        // let image = image::load_from_memory(&image_bytes)?.to_rgba8();
+        PhotoPicker::open(sender);
+    }
+
 
     /// Adds a font from raw bytes and returns a reference to the internal font handle.
     ///
