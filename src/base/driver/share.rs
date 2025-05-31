@@ -12,31 +12,49 @@ use jni::objects::{JClass, JObject, JString, JValue, GlobalRef};
 #[cfg(target_os = "android")]
 use jni::sys::{jobject, jint, JNI_VERSION_1_6};
 #[cfg(target_os = "android")]
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, Once};
 #[cfg(target_os = "android")]
 use std::ffi::CString;
+#[cfg(target_os = "android")]
+use std::error::Error;
+#[cfg(target_os = "android")]
+use ndk_context;
+
 
 #[cfg(target_os = "android")]
 static JAVA_VM: OnceLock<JavaVM> = OnceLock::new();
 #[cfg(target_os = "android")]
-static CURRENT_ACTIVITY: Mutex<Option<GlobalRef>> = Mutex::new(None);
+static APP_CONTEXT: OnceLock<GlobalRef> = OnceLock::new();
+#[cfg(target_os = "android")]
+static INIT_ONCE: Once = Once::new();
 
-pub struct Share {
-    #[cfg(target_os = "android")]
-    java_vm: Option<&'static JavaVM>,
-}
+pub struct Share;
 
 impl Share {
-    #[cfg(target_os = "android")]
     pub fn new() -> Self {
-        Self {
-            java_vm: JAVA_VM.get(),
-        }
+        Self
     }
 
-    #[cfg(not(target_os = "android"))]
-    pub fn new() -> Self {
-        Self {}
+    #[cfg(target_os = "android")]
+    pub fn initialize() -> Result<(), Box<dyn Error>> {
+        let jvm = unsafe { JavaVM::from_raw(ndk_context::android_context().vm().cast())? };
+
+        let global_context = {
+            let mut env = jvm.attach_current_thread()?;
+
+            let ctx_ptr = ndk_context::android_context().context();
+            if ctx_ptr.is_null() {
+                return Err("Failed to get Android context".into());
+            }
+
+            let context_obj = unsafe { JObject::from_raw(ctx_ptr as jobject) };
+            env.new_global_ref(context_obj)?
+        };
+
+        JAVA_VM.set(jvm).map_err(|_| "JavaVM already initialized")?;
+        APP_CONTEXT.set(global_context).map_err(|_| "App context already initialized")?;
+
+        Ok(())
     }
 
     #[cfg(target_os = "ios")]
@@ -70,22 +88,41 @@ impl Share {
 
     #[cfg(target_os = "android")]
     pub fn share(&self, text: &str) {
-        if let Some(vm) = self.java_vm {
+        if JAVA_VM.get().is_none() {
+            if let Err(e) = Self::initialize() {
+                eprintln!("Failed to initialize Share: {}", e);
+                return;
+            }
+        }
+
+        if let Some(vm) = JAVA_VM.get() {
             if let Ok(mut env) = vm.attach_current_thread() {
                 if let Err(e) = self.share_with_jni(&mut env, text) {
                     eprintln!("Failed to share on Android: {}", e);
                 }
+            } else {
+                eprintln!("Failed to attach to current thread");
             }
+        } else {
+            eprintln!("JavaVM not initialized. Make sure to call Share::initialize() first.");
         }
     }
 
     #[cfg(target_os = "android")]
-    fn share_with_jni(&self, env: &mut JNIEnv, text: &str) -> Result<(), Box<dyn std::error::Error>> {
-        // Create Intent for sharing
+    fn share_with_jni(&self, env: &mut JNIEnv, text: &str) -> Result<(), Box<dyn Error>> {
+
+        let chooser_intent = self.create_share_intent(env, text)?;
+
+        self.start_share_activity(env, chooser_intent)?;
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "android")]
+    fn create_share_intent<'a>(&self, env: &mut JNIEnv<'a>, text: &str) -> Result<JObject<'a>, Box<dyn Error>> {
         let intent_class = env.find_class("android/content/Intent")?;
         let intent = env.new_object(intent_class, "()V", &[])?;
 
-        // Set action to ACTION_SEND
         let action_send = env.new_string("android.intent.action.SEND")?;
         env.call_method(
             &intent,
@@ -94,7 +131,6 @@ impl Share {
             &[JValue::Object(&action_send)],
         )?;
 
-        // Set type to text/plain
         let mime_type = env.new_string("text/plain")?;
         env.call_method(
             &intent,
@@ -103,7 +139,6 @@ impl Share {
             &[JValue::Object(&mime_type)],
         )?;
 
-        // Add the text to share
         let extra_text = env.new_string("android.intent.extra.TEXT")?;
         let share_text = env.new_string(text)?;
         env.call_method(
@@ -113,7 +148,15 @@ impl Share {
             &[JValue::Object(&extra_text), JValue::Object(&share_text)],
         )?;
 
-        // Create chooser
+        let flags = env.get_static_field("android/content/Intent", "FLAG_ACTIVITY_NEW_TASK", "I")?;
+        let flag_value = flags.i()?;
+        env.call_method(
+            &intent,
+            "addFlags",
+            "(I)Landroid/content/Intent;",
+            &[JValue::Int(flag_value)],
+        )?;
+
         let chooser_title = env.new_string("Share via")?;
         let intent_class_static = env.find_class("android/content/Intent")?;
         let chooser = env.call_static_method(
@@ -123,58 +166,31 @@ impl Share {
             &[JValue::Object(&intent), JValue::Object(&chooser_title)],
         )?;
 
-        // Get current activity and start the chooser
-        let activity = Self::get_current_activity(env)?;
-        let chooser_intent = chooser.l()?;
+        let chooser_obj = chooser.l()?;
         env.call_method(
-            &activity,
-            "startActivity",
-            "(Landroid/content/Intent;)V",
-            &[JValue::Object(&chooser_intent)],
+            &chooser_obj,
+            "addFlags",
+            "(I)Landroid/content/Intent;",
+            &[JValue::Int(flag_value)],
         )?;
 
-        Ok(())
+        Ok(chooser_obj)
     }
 
     #[cfg(target_os = "android")]
-    fn get_current_activity<'a>(env: &'a JNIEnv<'a>) -> Result<JObject<'a>, Box<dyn std::error::Error>> {
-        // Get the stored current activity reference
-        let activity_guard = CURRENT_ACTIVITY.lock().unwrap();
-        if let Some(global_ref) = &*activity_guard {
-            // Convert GlobalRef to local reference
-            let local_ref = env.new_local_ref(global_ref)?;
-            Ok(local_ref)
+    fn start_share_activity<'a>(&self, env: &mut JNIEnv<'a>, chooser_intent: JObject<'a>) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(global_context) = APP_CONTEXT.get() {
+            let context = env.new_local_ref(global_context)?;
+
+            env.call_method(
+                &context,
+                "startActivity",
+                "(Landroid/content/Intent;)V",
+                &[JValue::Object(&chooser_intent)],
+            )?;
+            Ok(())
         } else {
-            Err("No current activity available".into())
+            Err("App context not initialized. Call Share::initialize() first.".into())
         }
     }
-
-    #[cfg(target_os = "macos")]
-    pub fn share(text: &str) {}
-
-    #[cfg(target_os = "linux")]
-    pub fn share(text: &str) {}
-}
-
-// Helper functions for Android activity management
-#[cfg(target_os = "android")]
-pub fn set_current_activity(env: &JNIEnv, activity: JObject) -> Result<(), Box<dyn std::error::Error>> {
-    let global_ref = env.new_global_ref(activity)?;
-    let mut activity_guard = CURRENT_ACTIVITY.lock().unwrap();
-    *activity_guard = Some(global_ref);
-    Ok(())
-}
-
-#[cfg(target_os = "android")]
-pub fn clear_current_activity() {
-    let mut activity_guard = CURRENT_ACTIVITY.lock().unwrap();
-    *activity_guard = None;
-}
-
-// JNI entry point to set the JavaVM
-#[cfg(target_os = "android")]
-#[no_mangle]
-pub extern "system" fn JNI_OnLoad(vm: JavaVM, _: *mut std::ffi::c_void) -> jint {
-    JAVA_VM.set(vm).expect("Failed to set JavaVM");
-    JNI_VERSION_1_6
 }
