@@ -3,7 +3,6 @@ pub use crate::base::renderer::wgpu_canvas::{MouseState, KeyboardState, NamedKey
 use downcast_rs::{Downcast, impl_downcast};
 
 use std::fmt::Debug;
-use std::any::Any;
 
 pub type Events = std::collections::VecDeque<Box<dyn Event>>;
 

@@ -1,5 +1,3 @@
-use std::ffi::{CStr, CString};
-use std::os::raw::c_void;
 use std::sync::mpsc::Sender;
 
 #[cfg(target_os = "ios")]
@@ -18,24 +16,30 @@ use objc2_foundation::NSArray;
 use objc2::__framework_prelude::NSObject;
 #[cfg(target_os = "ios")]
 use objc2::ffi::objc_retain;
+#[cfg(target_os = "ios")]
+use std::ffi::c_void;
+#[cfg(target_os = "ios")]
+use std::ffi::{CStr, CString};
+
 
 pub struct PhotoPicker;
 
-
+#[cfg(target_os = "ios")]
 #[derive(Clone, Copy)]
 struct SenderPtr(usize);
 
-// SAFETY: The value is only used on the main thread via UIKit.
+#[cfg(target_os = "ios")]
 unsafe impl Send for SenderPtr {}
+#[cfg(target_os = "ios")]
 unsafe impl Sync for SenderPtr {}
 
 impl PhotoPicker {
     #[cfg(target_os = "macos")]
-    pub fn open(sender: Sender<Vec<u8>>) {}
+    pub fn open(_sender: Sender<Vec<u8>>) {}
     #[cfg(target_os = "linux")]
-    pub fn open(sender: Sender<Vec<u8>>) {}
+    pub fn open(_sender: Sender<Vec<u8>>) {}
     #[cfg(target_os = "android")]
-    pub fn open(sender: Sender<Vec<u8>>) {}
+    pub fn open(_sender: Sender<Vec<u8>>) {}
 
     #[cfg(target_os = "ios")]
     pub fn open(sender: Sender<Vec<u8>>) {
@@ -44,7 +48,7 @@ impl PhotoPicker {
         let sender_box = Box::new(sender);
         let sender_ptr = SenderPtr(Box::into_raw(sender_box) as usize);
 
-        dispatch2::Queue::main().exec_async(move || {
+        dispatch2::DispatchQueue::main().exec_async(move || {
             // Now we cast it back into a raw pointer safely
             let sender_ptr = sender_ptr.0 as *mut c_void;
             println!("Started dispatcher");

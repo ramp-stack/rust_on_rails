@@ -240,19 +240,18 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
                                 .map(|start| start.elapsed())
                                 .unwrap_or_default();
 
-                            if held_for < Duration::from_millis(200) {
-                                // Short press
-                                self.app_event(WindowEvent::Mouse {
-                                    position,
-                                    state: MouseState::Released,
-                                });
-                            } else {
+                            if held_for > Duration::from_millis(200) {
                                 // Long press release
                                 self.app_event(WindowEvent::Mouse {
                                     position,
                                     state: MouseState::LongPressReleased,
                                 });
                             }
+
+                            self.app_event(WindowEvent::Mouse {
+                                position,
+                                state: MouseState::Released,
+                            });
                         }
                 
                         TouchPhase::Moved => {

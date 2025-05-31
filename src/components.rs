@@ -6,8 +6,7 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::future::Future;
 use std::time::Instant;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::Sender;
 
 use crate::base;
 use base::{BaseAppTrait, HeadlessContext};
