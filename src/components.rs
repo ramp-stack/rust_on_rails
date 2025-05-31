@@ -39,6 +39,7 @@ pub use drawable::{
     Drawable, ShapeType, Color,
 };
 use drawable::_Drawable;
+use crate::base::driver::clipboard::Clipboard;
 
 /// Type alias for a list of directories containing UI assets. (e.g. images, fonts, etc.)
 pub type Assets = Vec<Dir<'static>>;
@@ -114,8 +115,13 @@ impl Context {
     // }
 
     pub fn share(&mut self, text: &str) {
-        Share::share(text)
+        Share::new().share(text)
     }
+
+    pub fn get_clipboard(&mut self) -> String { Clipboard::get() }
+
+    pub fn set_clipboard(&mut self, t: String) { Clipboard::set(t) }
+
 
     /// Adds a font from raw bytes and returns a reference to the internal font handle.
     ///

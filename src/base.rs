@@ -56,8 +56,7 @@ impl<R: Renderer> Context<R> {
     pub fn state(&mut self) -> &mut State {&mut self.state}
 
     pub fn open_camera() -> Camera { Camera::new() }
-    //pub fn get_clipboard(&mut self) -> String { Clipboard::get() }
-   // pub fn set_clipboard(&mut self, t: String) { Clipboard::set(t) }
+
 }
 
 pub struct BackgroundApp;
