@@ -157,6 +157,7 @@ impl<A: WindowAppTrait + 'static> ApplicationHandler for Winit<A> {
         if i == self.window().id() {
             match event {
                 WinitWindowEvent::CloseRequested => {
+                    println!("Close requested");
                     self.close();
                     event_loop.exit();
                 },

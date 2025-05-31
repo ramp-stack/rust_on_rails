@@ -180,15 +180,11 @@ pub struct AppleCamera {
 impl AppleCamera {
     pub fn new() -> Self {
         unsafe {
-            AppleCamera {
+            let camera = AppleCamera {
                 session: AVCaptureSession::new(),
                 processor: Processor::new(),
-            }
-        }
-    }
+            };
 
-    pub fn open_camera(&self) {
-        unsafe {
             let device_types = NSArray::from_slice(&[objc2_av_foundation::AVCaptureDeviceTypeBuiltInWideAngleCamera]);
 
             let discovery_session = AVCaptureDeviceDiscoverySession::discoverySessionWithDeviceTypes_mediaType_position(
@@ -204,12 +200,12 @@ impl AppleCamera {
             let input = AVCaptureDeviceInput::deviceInputWithDevice_error(&device)
                 .expect("Failed to create AVCaptureDeviceInput");
 
-            self.session.beginConfiguration();
+            camera.session.beginConfiguration();
 
-            self.session.setSessionPreset(AVCaptureSessionPresetHigh);
+            camera.session.setSessionPreset(AVCaptureSessionPresetHigh);
 
-            if self.session.canAddInput(&input) {
-                self.session.addInput(&input);
+            if camera.session.canAddInput(&input) {
+                camera.session.addInput(&input);
             }
 
             let output = AVCaptureVideoDataOutput::new();
@@ -228,16 +224,18 @@ impl AppleCamera {
             let queue = DispatchQueue::new("CameraQueue", None);
 
             output.setSampleBufferDelegate_queue(
-                Some(ProtocolObject::from_ref(&*self.processor)),
+                Some(ProtocolObject::from_ref(&*camera.processor)),
                 Some(&queue),
             );
 
-            if self.session.canAddOutput(&output) {
-                self.session.addOutput(&output);
+            if camera.session.canAddOutput(&output) {
+                camera.session.addOutput(&output);
             }
 
-            self.session.commitConfiguration();
-            self.session.startRunning();
+            camera.session.commitConfiguration();
+            camera.session.startRunning();
+            
+            camera
         }
     }
 

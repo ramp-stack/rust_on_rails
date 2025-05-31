@@ -7,3 +7,4 @@ pub mod state;
 pub mod cache;
 pub mod cloud;
 pub mod share;
+pub mod haptics;
