@@ -130,10 +130,8 @@ macro_rules! create_base_entry_points {
         #[cfg(target_os = "ios")]
         #[no_mangle]
         pub extern "C" fn ios_main() {
-            let ptr = unsafe {$crate::get_application_support_dir()};
-            if ptr.is_null() {panic!("COULD NOT GET APPLICATION DIRECTORY");}
-            let c_str = unsafe {std::ffi::CStr::from_ptr(ptr)};
-            let path = std::path::PathBuf::from(std::path::Path::new(&c_str.to_string_lossy().to_string()));
+            let path = $crate::ApplicationSupport::get()
+                .expect("COULD NOT GET APPLICATION SUPPORT DIRECTORY");
             WindowApp::<RenderApp<$renderer, BaseApp<$renderer, $app>>>::new(path).start();
         }
 
@@ -146,7 +144,11 @@ macro_rules! create_base_entry_points {
 
         #[cfg(not(any(target_os = "android", target_os="ios", target_arch = "wasm32")))]
         pub fn desktop_main() {
+            #[cfg(not(target_os = "macos"))]
             let path = std::path::PathBuf::from(env!("HOME")).join(format!(".{}", env!("CARGO_PKG_NAME")));
+            #[cfg(target_os = "macos")]
+            let path = $crate::ApplicationSupport::get()
+                .expect("COULD NOT GET APPLICATION SUPPORT DIRECTORY");
             if std::env::args().len() == 1 {
                 WindowApp::<RenderApp<$renderer, BaseApp<$renderer, $app>>>::new(path).start();
             } else {
@@ -154,9 +156,4 @@ macro_rules! create_base_entry_points {
             }
         }
     };
-}
-
-#[cfg(target_os = "ios")]
-extern "C" {
-    pub fn get_application_support_dir() -> *const std::os::raw::c_char;
 }

@@ -30,7 +30,7 @@ objc2 = "0.6.1"
 objc2-av-foundation = "0.3.1"
 objc2-core-video = "0.3.1"
 objc2-core-media = "0.3.1"
-objc2-foundation = "0.3.1"
+objc2-foundation = { version = "0.3.1", features = ["NSPathUtilities"] }
 dispatch2 = "0.3.0"
 libc = "0.2.172"
 objc2-ui-kit = "0.3.1"
