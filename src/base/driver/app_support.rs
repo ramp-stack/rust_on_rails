@@ -1,79 +1,70 @@
-use std::fs;
-use objc2_foundation::{
-    NSArray, 
-    NSString, 
-    NSAutoreleasePool, 
-    NSFileManager, 
-    NSURL, 
-    NSObject,
-    NSError,
-    NSDictionary,
-    NSSearchPathDirectory,
-    NSSearchPathDomainMask
-};
-use objc2::rc::{Id, Retained};
-use objc2::runtime::{Bool, Class};
-use objc2::{msg_send, sel, class};
-use objc2::ClassType;
-use std::path::{PathBuf, Path};
-use std::ffi::CStr;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+use objc2_foundation::{NSString, NSURL};
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+use objc2::msg_send;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+use std::path::PathBuf;
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+use objc2::runtime::AnyObject;
+
+#[cfg(target_os = "macos")]
+use objc2_foundation::{NSError, NSDictionary, NSAutoreleasePool, NSFileManager, NSSearchPathDirectory,NSSearchPathDomainMask};
+
+#[cfg(target_os = "ios")]
+const NS_APPLICATION_SUPPORT_DIRECTORY: usize = 14;
+#[cfg(target_os = "ios")]
+const NS_USER_DOMAIN_MASK: usize = 1;
 
 pub struct ApplicationSupport;
 
 impl ApplicationSupport {
     #[cfg(target_os = "ios")]
     pub fn get() -> Option<PathBuf> {
+        use objc2::runtime::AnyClass;
+        use std::ffi::CStr;
+
         unsafe {
-            let _pool = NSAutoreleasePool::new();
+            let file_manager_class = AnyClass::get(c"NSFileManager").unwrap();
+            let file_manager: *mut AnyObject = msg_send![file_manager_class, defaultManager];
 
-            let file_manager = NSFileManager::defaultManager();
+            let mut error: *mut AnyObject = std::ptr::null_mut();
 
-            let url: Result<Retained<NSURL>, Retained<objc2_foundation::NSError>> =
-                file_manager.URLForDirectory_inDomain_appropriateForURL_create_error(
-                    NSSearchPathDirectory::ApplicationSupportDirectory,
-                    NSSearchPathDomainMask::UserDomainMask,
-                    None,
-                    true,
-                );
+            let url: *mut NSURL = msg_send![
+                file_manager,
+                URLForDirectory: NS_APPLICATION_SUPPORT_DIRECTORY,
+                inDomain: NS_USER_DOMAIN_MASK,
+                appropriateForURL: std::ptr::null::<AnyObject>(),
+                create: true,
+                error: &mut error,
+            ];
 
-            if let Some(mut url) = url.ok() {
-                // let bundle: *mut NSObject = msg_send![Class::get(cstr!("NSBundle")).unwrap(), mainBundle];
-                let nsbundle = Class::get(CStr::from_bytes_with_nul_unchecked(b"NSBundle\0")).unwrap();
-                let bundle: *mut NSObject = msg_send![nsbundle, mainBundle];
-                let identifier: *mut NSString = msg_send![bundle, bundleIdentifier];
-
-                let identifier = if !identifier.is_null() {
-                    Retained::new(identifier).unwrap()
-                } else {
-                    println!("No bundle identifier — using fallback.");
-                    NSString::from_str("org.ramp.orange")
-                };
-
-                let subpath: Id<NSURL> = msg_send![&*url, URLByAppendingPathComponent: Retained::<NSString>::as_ptr(&identifier)];
-                url = subpath;
-
-                let _: Bool = msg_send![&*file_manager,
-                    createDirectoryAtURL: &*url,
-                    withIntermediateDirectories: true,
-                    attributes: std::ptr::null::<objc2_foundation::NSDictionary>(),
-                    error: std::ptr::null_mut::<*mut objc2_foundation::NSError>()
-                ];
-
-                let path: *mut NSString = msg_send![&*url, path];
-                if !path.is_null() {
-                    let str_path = (*path).to_string();
-                    return Some(PathBuf::from(str_path));
-                }
+            if url.is_null() {
+                return None;
             }
 
-            None
+            let path_nsstring: *mut NSString = msg_send![url, path];
+            if path_nsstring.is_null() {
+                return None;
+            }
+
+            let c_str: *const std::os::raw::c_char = msg_send![path_nsstring, UTF8String];
+            if c_str.is_null() {
+                return None;
+            }
+
+            let path = CStr::from_ptr(c_str).to_string_lossy().into_owned();
+            let str_path = (*path).to_string();
+            Some(PathBuf::from(str_path))
         }
     }
-
 
     #[cfg(target_os = "macos")]
     pub fn get() -> Option<PathBuf> {
         unsafe {
+            use objc2::class;
+            use objc2::rc::Retained;
+            use objc2::runtime::Bool;
+
             let _pool = NSAutoreleasePool::new();
 
             let file_manager = NSFileManager::defaultManager();
@@ -87,21 +78,21 @@ impl ApplicationSupport {
 
             println!("URL: {:?}", url);
 
-            if let Some(mut url) = url.ok() {
-                let bundle: *mut NSObject = msg_send![class!(NSBundle), mainBundle];
+            if let Ok(mut url) = url {
+                let bundle: *mut AnyObject = msg_send![class!(NSBundle), mainBundle];
                 println!("Bundle {:?}", bundle);
                 let identifier: *mut NSString = msg_send![bundle, bundleIdentifier];
-                println!("Identfier {:?}", identifier);
+                println!("Retainedentfier {:?}", identifier);
 
 
                 let identifier = if !identifier.is_null() {
-                    Id::retain(identifier).unwrap()
+                    Retained::retain(identifier).unwrap()
                 } else {
                     println!("Running outside .app bundle — using fallback identifier");
                     NSString::from_str("org.ramp.orange")
                 };
 
-                let subpath: Id<NSURL> = msg_send![&*url, URLByAppendingPathComponent: Retained::<NSString>::as_ptr(&identifier)];
+                let subpath: Retained<NSURL> = msg_send![&*url, URLByAppendingPathComponent: Retained::<NSString>::as_ptr(&identifier)];
                 url = subpath;
 
                 let _: Bool = msg_send![&*file_manager,

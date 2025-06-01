@@ -1,7 +1,7 @@
-#[cfg(any(target_os = "ios", target_os = "macos"))]
-use objc2::MainThreadMarker;
 #[cfg(target_os = "ios")]
 use objc2_ui_kit::UIImpactFeedbackGenerator;
+#[cfg(target_os = "ios")]
+use objc2::MainThreadMarker;
 
 pub struct Haptics;
 

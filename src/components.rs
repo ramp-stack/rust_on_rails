@@ -14,6 +14,7 @@ use base::driver::runtime::Tasks;
 use base::driver::state::State;
 use base::driver::share::Share;
 use base::driver::photo_picker::PhotoPicker;
+use base::driver::safe_area::SafeAreaInsets;
 use base::driver::haptics::Haptics;
 
 use base::renderer::wgpu_canvas as canvas;
@@ -126,6 +127,10 @@ impl Context {
 
     pub fn vibrate(&mut self) {
         Haptics::vibrate();
+    }
+
+    pub fn safe_area_insets(&mut self) -> (f32, f32, f32, f32) {
+        SafeAreaInsets::get()
     }
 
 
