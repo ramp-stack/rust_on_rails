@@ -226,4 +226,17 @@ impl ImageOrientation {
             _ => return ImageOrientation::Up,
         };
     }
+
+    pub fn apply_to(&self, image: image::DynamicImage) -> image::DynamicImage {
+        match self {
+            ImageOrientation::Up => return image,
+            ImageOrientation::Down => return image.rotate180(),
+            ImageOrientation::Left => return image.rotate270(),
+            ImageOrientation::Right => return image.rotate90(),
+            ImageOrientation::UpMirrored => return image.fliph(),
+            ImageOrientation::DownMirrored => return image.fliph().rotate180(),
+            ImageOrientation::LeftMirrored => return image.fliph().rotate90(),
+            ImageOrientation::RightMirrored => return image.fliph().rotate270()
+        };
+    }
 }
