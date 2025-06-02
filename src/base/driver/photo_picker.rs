@@ -21,6 +21,8 @@ use std::ffi::c_void;
 #[cfg(target_os = "ios")]
 use std::ffi::{CStr, CString};
 
+use std::f64::consts::{FRAC_PI_2, PI};
+
 
 pub struct PhotoPicker;
 
@@ -35,14 +37,14 @@ unsafe impl Sync for SenderPtr {}
 
 impl PhotoPicker {
     #[cfg(target_os = "macos")]
-    pub fn open(_sender: Sender<Vec<u8>>) {}
+    pub fn open(_sender: Sender<(Vec<u8>, ImageOrientation)>) {}
     #[cfg(target_os = "linux")]
-    pub fn open(_sender: Sender<Vec<u8>>) {}
+    pub fn open(_sender: Sender<(Vec<u8>, ImageOrientation)>) {}
     #[cfg(target_os = "android")]
-    pub fn open(_sender: Sender<Vec<u8>>) {}
+    pub fn open(_sender: Sender<(Vec<u8>, ImageOrientation)>) {}
 
     #[cfg(target_os = "ios")]
-    pub fn open(sender: Sender<Vec<u8>>) {
+    pub fn open(sender: Sender<(Vec<u8>, ImageOrientation)>) {
         println!("STARTED");
         println!("ATTEMPTING TO OPEN PHOTO PICKER");
         let sender_box = Box::new(sender);
@@ -130,21 +132,24 @@ fn create_photo_picker_delegate(sender_ptr: *mut c_void) -> *mut AnyObject {
                         return;
                     }
 
-                    let sender_box: Box<Sender<Vec<u8>>> = Box::from_raw(sender_ptr as *mut _);
+                    let sender_box: Box<Sender<(Vec<u8>, ImageOrientation)>> = Box::from_raw(sender_ptr as *mut _);
 
                     let uiimage_class = class!(UIImage);
                     let can_load: bool = msg_send![item_provider, canLoadObjectOfClass: uiimage_class];
                     if !can_load {
-                        let _ = sender_box.send(Vec::new());
+                        let _ = sender_box.send((Vec::new(), ImageOrientation::Up));
                         return;
                     }
 
                     let block = ConcreteBlock::new(move |image_obj: *mut AnyObject, _error: *mut AnyObject| {
-                        let data = if !image_obj.is_null() {
+                        let (data, orientation) = if !image_obj.is_null() {
+                            let orientation: i64 = unsafe { msg_send![image_obj, imageOrientation] };
+                            // let image_obj = rotated_from(orientation, image_obj);
+
                             let symbol_name = CString::new("UIImagePNGRepresentation").unwrap();
                             let func_ptr = libc::dlsym(libc::RTLD_DEFAULT, symbol_name.as_ptr());
                             if func_ptr.is_null() {
-                                Vec::new()
+                                (Vec::new(), orientation)
                             } else {
                                 let uiimage_png_rep_fn: extern "C" fn(*mut AnyObject) -> *mut AnyObject =
                                     std::mem::transmute(func_ptr);
@@ -152,17 +157,16 @@ fn create_photo_picker_delegate(sender_ptr: *mut c_void) -> *mut AnyObject {
                                 if !nsdata.is_null() {
                                     let bytes_ptr: *const c_void = msg_send![nsdata, bytes];
                                     let length: usize = msg_send![nsdata, length];
-                                    std::slice::from_raw_parts(bytes_ptr as *const u8, length).to_vec()
+                                    (std::slice::from_raw_parts(bytes_ptr as *const u8, length).to_vec(), orientation)
                                 } else {
-                                    Vec::new()
+                                    (Vec::new(), orientation)
                                 }
                             }
                         } else {
-                            Vec::new()
+                            (Vec::new(), 0)
                         };
 
-                        let _ = sender_box.send(data);
-                        // Box dropped here, safely
+                        let _ = sender_box.send((data, ImageOrientation::get(orientation)));
                     });
 
                     let rc_block: RcBlock<(*mut AnyObject, *mut AnyObject), ()> = block.copy();
@@ -196,3 +200,30 @@ fn create_photo_picker_delegate(sender_ptr: *mut c_void) -> *mut AnyObject {
     }
 }
 
+#[derive(Debug)]
+pub enum ImageOrientation {
+    Up,
+    Down,
+    Left,
+    Right,
+    UpMirrored,
+    DownMirrored,
+    LeftMirrored,
+    RightMirrored,
+}
+
+impl ImageOrientation {
+    fn get(orientation: i64) -> Self {
+        match orientation {
+            0 => return ImageOrientation::Up,
+            1 => return ImageOrientation::Down,
+            2 => return ImageOrientation::Left,
+            3 => return ImageOrientation::Right,
+            4 => return ImageOrientation::UpMirrored,
+            5 => return ImageOrientation::DownMirrored,
+            6 => return ImageOrientation::LeftMirrored,
+            7 => return ImageOrientation::RightMirrored,
+            _ => return ImageOrientation::Up,
+        };
+    }
+}

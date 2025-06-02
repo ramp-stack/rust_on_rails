@@ -8,6 +8,7 @@ pub use base::driver::runtime::{Task, Tasks, async_trait};
 pub use base::driver::state::{State, Field};
 pub use base::driver::cache::Cache;
 pub use base::driver::app_support::ApplicationSupport;
+pub use base::driver::photo_picker::ImageOrientation;
 pub use base::driver::cloud::CloudStorage;
 pub use base::driver::camera::{Camera, CameraError};
 #[cfg(target_os="android")]

@@ -13,7 +13,7 @@ use base::{BaseAppTrait, HeadlessContext};
 use base::driver::runtime::Tasks;
 use base::driver::state::State;
 use base::driver::share::Share;
-use base::driver::photo_picker::PhotoPicker;
+use base::driver::photo_picker::{PhotoPicker, ImageOrientation};
 use base::driver::safe_area::SafeAreaInsets;
 use base::driver::haptics::Haptics;
 
@@ -121,7 +121,7 @@ impl Context {
         Share::share(text)
     }
 
-    pub fn open_photo_picker(&mut self, sender: Sender<Vec<u8>>) {
+    pub fn open_photo_picker(&mut self, sender: Sender<(Vec<u8>, ImageOrientation)>) {
         PhotoPicker::open(sender);
     }
 
